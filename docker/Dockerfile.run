@@ -1,0 +1,6 @@
+FROM jupyter/scipy-notebook
+
+RUN pip install opencv-python ffmpeg-python
+RUN pip install bapipe-keypoints-telfer==0.0.5
+
+CMD ["bash"]
