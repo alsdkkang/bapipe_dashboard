@@ -44,11 +44,44 @@ bash docker-run.sh
 
 ## Structure of Data
 In order to use this pipeline, load a csv file with the following information
-- subject id
-- path to video
-- path to mouse bodypart position files (produced from DeepLabCut or similar pose estimation software) 
-- path to video landmarks (e.g. box corners) [optional]
-- path to camera calibrations [optional]
+- subject id 
+- path to video 
+- path to mouse bodypart position files (expects a deeplabcut-style .h5 file) 
+- path to video landmarks (e.g. box corners) [optional but required for alignment]. Expects arena corners to be named "top_left", "top_right", "bottom_right", "bottom_left". Alternatively modify the `Video.get_perspective_transform` function.
+- path to camera calibrations [optional but required to remove lens warping]. See docs for more details of how to get the transform. Camera calibrations file is a json with two fields.
+
+Expected camera calibrations format:
+```json
+{
+    "camera_matrix": [
+        [
+            565.8324795610855,
+            0.0,
+            487.1592322950171
+        ],
+        [
+            0.0,
+            571.836529795452,
+            262.8933681996104
+        ],
+        [
+            0.0,
+            0.0,
+            1.0
+        ]
+    ],
+    "distortion_coefficients": [
+        [
+            -0.3713229469534476,
+            0.21375246276219506,
+            0.003855922357321911,
+            -0.001019997660503782,
+            -0.07011686555555051
+        ]
+    ],
+    "mean_error": 0.0467415172925615
+}
+```
 
 
 ```python
