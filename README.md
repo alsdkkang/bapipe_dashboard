@@ -120,24 +120,24 @@ datafiles.head(3)
       <th>0</th>
       <td>m1</td>
       <td>videos/m1.mp4</td>
-      <td>videos/mouse_labels/m1DLC_resnet50_agrpNov19sh...</td>
-      <td>videos/landmark_labels/m1DLC_resnet50_agrp_lan...</td>
+      <td>videos/mouse_labels/m1DLC_resnet50_agrpNov19sh... .h5</td>
+      <td>videos/landmark_labels/m1DLC_resnet50_agrp_lan... .h5</td>
       <td>camera_calibrations.json</td>
     </tr>
     <tr>
       <th>1</th>
       <td>m2</td>
       <td>videos/m2.mp4</td>
-      <td>videos/mouse_labels/m2DLC_resnet50_agrpNov19sh...</td>
-      <td>videos/landmark_labels/m2DLC_resnet50_agrp_lan...</td>
+      <td>videos/mouse_labels/m2DLC_resnet50_agrpNov19sh... .h5</td>
+      <td>videos/landmark_labels/m2DLC_resnet50_agrp_lan... .h5</td>
       <td>camera_calibrations.json</td>
     </tr>
     <tr>
       <th>2</th>
       <td>m3</td>
       <td>videos/m3.mp4</td>
-      <td>videos/mouse_labels/m3DLC_resnet50_agrpNov19sh...</td>
-      <td>videos/landmark_labels/m3DLC_resnet50_agrp_lan...</td>
+      <td>videos/mouse_labels/m3DLC_resnet50_agrpNov19sh... .h5</td>
+      <td>videos/landmark_labels/m3DLC_resnet50_agrp_lan... .h5</td>
       <td>camera_calibrations.json</td>
     </tr>
   </tbody>
