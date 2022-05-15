@@ -2,6 +2,7 @@
 A pipeline for processing behavioural keypoint data gathered from deep learning models (we used DeepLabCut). Demonstrates a few common data/figures for posters/publications. 
 
 Author: Andre Telfer (andretelfer@cmail.carleton.ca) / happy to answer questions / open to collaboration
+- Code is shared largely for demonstrative purposes due to the wide amount of variation between lab setups (e.g. recording multiple animals in the same video)
 
 ## Background
 Advances in Deep Learning have driven a wave of pose-estimation tools which extract information from animals and their surroundings ([DeepLabCut](http://www.mackenziemathislab.org/deeplabcut), [OpenPose](https://github.com/CMU-Perceptual-Computing-Lab/openpose), [SLEAP](https://sleap.ai/)). These models are trained to extract keypoint data (x, y coordinates) for specified bodyparts or objects in the environment.
