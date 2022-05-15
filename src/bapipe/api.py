@@ -18,8 +18,10 @@ from .configs import AnalysisConfig
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
+
 class VideoSet:
     """High level interface for processing multiple videos at once"""
+
     def __init__(self):
         self.videos = []
 
@@ -30,17 +32,36 @@ class VideoSet:
         root_dir: Union[Path, str] = "",
         use_multiprocessing: bool = True,
     ):
+        """Load videos from a dataframe containing file locations
+
+        Parameters
+        ----------
+        df : pandas.Dataframe
+          Contains file locations with the following column names: id, video, 
+          mouse_labels, landmark_labels, camera_calibrations
+        config : AnalysisConfig
+          Options to analyze the experiment with
+        root_dir : Path
+          Specify the directory which the `df` paths are relative to
+        use_multiprocessing : bool, default=True
+          Parallelize loading the files
+
+        Returns
+        -------
+        """
         vs = VideoSet()
-        p = partial(
-            Video.from_record, kwargs={"root_dir": root_dir, "config": config}
-        )
+        p = partial(Video.from_record, kwargs={"root_dir": root_dir, "config": config})
         records = df.to_dict(orient="records")
-        tqdm_description = "Preprocessing datafiles ..."
         if use_multiprocessing:
             with mp.Pool(processes=mp.cpu_count()) as pool:
                 vs.videos += list(tqdm(pool.imap(p, records), total=len(records)))
         else:
-            vs.videos += [p(record) for record in tqdm(records, )]
+            vs.videos += [
+                p(record)
+                for record in tqdm(
+                    records,
+                )
+            ]
 
         return vs
 
@@ -63,17 +84,33 @@ class VideoSet:
         *args,
         use_multiprocessing: bool = True,
         as_df: bool = False,
-        **kwargs
+        **kwargs,
     ):
+        """Apply a callable to the entire VideoSet
+
+        Parameters
+        ----------
+        foo : callable
+          The function/class to apply
+        *args 
+          Arguments passed on to callable
+        use_multiprocessing : bool, default = True
+          Apply the function in parallel using multiprocessing
+        as_df : bool, default = False
+          Return results as dataframe
+
+        Returns
+        -------
+        List or pandas.Dataframe containing outputs of the provided callable
+        """
         p = partial(foo, *args, **kwargs)
         if use_multiprocessing:
             with mp.Pool(processes=mp.cpu_count()) as pool:
-                results = list(
-                    tqdm(pool.imap(p, self.videos), total=len(self.videos))
-                )
+                results = list(tqdm(pool.imap(p, self.videos), total=len(self.videos)))
         else:
             results = [
-                p(subject_analysis) for subject_analysis in tqdm(list(self.videos), total=len(self.videos))
+                p(subject_analysis)
+                for subject_analysis in tqdm(list(self.videos), total=len(self.videos))
             ]
 
         if as_df:
@@ -86,24 +123,30 @@ class VideoSet:
         return [v.id for v in self.videos]
 
     def get_description(self):
+        """Summarize basic stats from the video set"""
         sizes = {(video.frame_width, video.frame_height) for video in self.videos}
         durations = np.array([video.duration for video in self.videos])
 
         return [
             ["Number of videos", len(self.videos)],
-            ["Video sizes (W,H)", ', '.join([f'{w}x{h}' for w,h in sizes])],
+            ["Video sizes (W,H)", ", ".join([f"{w}x{h}" for w, h in sizes])],
             ["Total duration [s]", np.sum(durations)],
             ["Average duration [s]", round(np.mean(durations), 2)],
         ]
 
     def __repr__(self):
-        return '\n'.join([f"{d}: {v}"for d, v in self.get_description()])
+        return "\n".join([f"{d}: {v}" for d, v in self.get_description()])
 
     def _repr_html_(self):
-        content = ''.join([f"<tr><td>{d}</td><td>{v}</td></tr>" for d, v in self.get_description()])
-        return f'<table>{content}</table>'
+        content = "".join(
+            [f"<tr><td>{d}</td><td>{v}</td></tr>" for d, v in self.get_description()]
+        )
+        return f"<table>{content}</table>"
+
 
 class Video:
+    """Class for processing data relating to a single video"""
+
     def __init__(
         self,
         config: AnalysisConfig,
@@ -113,8 +156,14 @@ class Video:
         landmark_labels: str,
         camera_calibrations: str,
         root_dir: Union[str, Path] = "",
-        **kwargs
+        **kwargs,
     ):
+        """Load and preprocess the video datafiles 
+        
+        Parameters
+        ----------
+
+        """
         if isinstance(root_dir, str):
             root_dir = Path(root_dir)
 
@@ -180,30 +229,35 @@ class Video:
     @property
     def duration(self):
         """Duration in seconds"""
-        return self.frame_count / self.fps 
-       
+        return self.frame_count / self.fps
+
     def get_cap(self):
         return cv2.VideoCapture(str(self.video))
 
     def undistort(self, df):
+        """Remove lens warping from dataframe containing x,y coordinates"""
         df = df.copy()
         idx = pd.IndexSlice
 
         x = df.loc[:, idx[:, :, "x"]]
         y = df.loc[:, idx[:, :, "y"]]
 
+        # Stack x, y coordinates into 1 dimension
         x = x.stack(dropna=False).stack(dropna=False)
         y = y.stack(dropna=False).stack(dropna=False)
 
+        # Create a merged [x,y] array and remove lens warping
         points = np.c_[x, y][:, np.newaxis, :]
         points = cv2.undistortPoints(
             points, self.calib.m, self.calib.d, None, None, self.calib.m
         )
 
+        # Shape points back into a multi-indexed dataframe
         nx, ny = points[:, 0].T
         nx = pd.DataFrame(nx, index=x.index, columns=x.columns).unstack().unstack()
         ny = pd.DataFrame(ny, index=y.index, columns=y.columns).unstack().unstack()
 
+        # Recover original structure
         df.loc[:, idx[:, :, "x"]] = nx
         df.loc[:, idx[:, :, "y"]] = ny
         return df
@@ -251,6 +305,7 @@ class Video:
         return df
 
     def transform_array_to_perspective(self, arr):
+        """Move into the box's frame of reference"""
         x, y = arr.T
         tx, ty, v = self.perspective_transform @ np.c_[x, y, np.ones_like(x)].T
         return np.c_[tx / v, ty / v]
@@ -258,12 +313,12 @@ class Video:
     def undistort_frame(self, frame, override_config={}):
         config = {**asdict(self.config), **override_config}
 
-        if config['remove_lens_distortion']:
+        if config["remove_lens_distortion"]:
             frame = cv2.undistort(frame, self.calib.m, self.calib.d)
 
-        if config['use_box_reference']:
+        if config["use_box_reference"]:
             frame = cv2.warpPerspective(
-                frame, self.perspective_transform, config['box_shape']
+                frame, self.perspective_transform, config["box_shape"]
             )
 
         return frame
@@ -277,6 +332,9 @@ class Video:
         return frame
 
     def get_first_frame_mouse_in_box(self):
+        """Return the frame the mouse is first visible, with a tolerance to
+        remove noise"""
+        
         w, h = self.config.box_shape
         padding = 50
         points = [

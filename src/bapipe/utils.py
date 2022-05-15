@@ -8,6 +8,7 @@ from skimage import draw
 from skimage.transform import resize
 
 def create_video_grid(video_set, scale=0.5, override_config={}):
+    """Aggregate a VideoSet into a single summary image"""
     columns = int(np.sqrt(len(video_set)))
     rows = int(np.ceil(len(video_set) / columns))
     
@@ -25,6 +26,7 @@ def create_video_grid(video_set, scale=0.5, override_config={}):
     return img 
 
 def draw_dataframe_points(frame, df, frame_index, bodyparts=[], hist=5, alpha_degrade=0.6):
+    """Draw x,y coordinates from a dataframe onto an image"""
     h,w,_ = frame.shape
     alpha = 1.0
     
@@ -60,7 +62,7 @@ def draw_text(img, lines,
               text_color_bg=(0, 0, 0),
               padding=3
           ):
-
+    """Draw text onto an image"""
     dx, dy = pos
     max_width, max_height = 0, 0
     for text in lines:
@@ -80,6 +82,7 @@ def draw_text(img, lines,
         cv2.putText(img, text, (dx + padding, y), font, font_scale, text_color, font_thickness)
 
 class VideoWriter:
+    """Convenient method for creating videos"""
     def __init__(self, video, output_file):
         self.output_file = str(output_file)
         frame = video.get_frame(0)
