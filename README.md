@@ -18,7 +18,10 @@ We demonstrate a few examples of using DeepLabCut data in order to produce
 
 Entire experiments can often be processed quite quickly at this level, so this pipeline enables the ability to evaluate experiments for multiple parameters (e.g. different zone sizes) and develop real time dashboards for analysis. Furthermore, it includes an image registration step that removes scale and position variance between videos, allowing for perfectly aligned analysis not available in existing commercial or open source tools. 
 
-Author: Andre Telfer (andretelfer@cmail.carleton.ca) 
+![](docs/assets/rt-dashboard-demo.gif)
+Real-time dashboard example developed to explore the results of an experiment.
+
+Author: Andre Telfer (andretelfer@cmail.carleton.ca)
 
 ## Installation
 ```python
