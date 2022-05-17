@@ -1,7 +1,7 @@
 # Behaviour Analysis for Keypoint Data
 A pipeline for processing behavioural keypoint data gathered from deep learning models (we used DeepLabCut). Demonstrates a few common data/figures for posters/publications. 
 
-Author: Andre Telfer (andretelfer@cmail.carleton.ca) / happy to answer questions / open to collaboration
+Author: Andre Telfer (andretelfer@cmail.carleton.ca) / happy to answer questions / open to collaboration    
 Affiliation: Abizaid Lab (Dr. Alfonso Abizaid), Carleton University, Canada
 
 ## Background
