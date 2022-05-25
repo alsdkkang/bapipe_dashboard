@@ -4,6 +4,7 @@
 format: jb-book
 root: docs/intro
 chapters:
+- file: docs/paper-structure
 - file: docs/markdown
 - file: docs/notebooks
 - file: docs/markdown-notebooks

@@ -1,0 +1,981 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper &#8212; Behavioural Analysis Pipeline for Keypoints Data</title>
+    
+  <link href="../_static/css/theme.css" rel="stylesheet">
+  <link href="../_static/css/index.ff1ffe594081f20da1ef19478df9384b.css" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-book-theme.css?digest=c3fdc42140077d1ad13ad2f1588a4309" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-main.c949a650a448cc0ae9fd3441c0e17fb0.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/panels-variables.06eb56fa6e07937060861dad626602ad.css" />
+    
+  <link rel="preload" as="script" href="../_static/js/index.be7d3bbb2ef33a8344ce.js">
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/clipboard.min.js"></script>
+    <script src="../_static/copybutton.js"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/sphinx-book-theme.d59cb220de22ca1c485ebbdc042f0030.js"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
+    <script async="async" src="../_static/sphinx-thebe.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Markdown Files" href="markdown.html" />
+    <link rel="prev" title="Behavior Analysis for Keypoints Pipeline" href="intro.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<div class="col-12 col-md-3 bd-sidebar site-navigation show" id="site-navigation">
+    
+        <div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../index.html">
+      
+        <!-- `logo` is deprecated in Sphinx 4.0, so remove this when we stop supporting 3 -->
+        
+      
+      
+      <img src="../_static/logo.png" class="logo" alt="logo">
+      
+      
+      <h1 class="site-logo" id="site-title">Behavioural Analysis Pipeline for Keypoints Data</h1>
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search this book..." aria-label="Search this book..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="intro.html">
+   Behavior Analysis for Keypoints Pipeline
+  </a>
+ </li>
+</ul>
+<ul class="current nav bd-sidenav">
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Paper
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="markdown.html">
+   Markdown Files
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="notebooks.html">
+   Content with notebooks
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="markdown-notebooks.html">
+   Notebooks with MyST Markdown
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav> <!-- To handle the deprecated key -->
+
+<div class="navbar_extra_footer">
+  Powered by <a href="https://jupyterbook.org">Jupyter Book</a>
+</div>
+
+</div>
+
+
+          
+
+
+          
+<main class="col py-md-3 pl-md-4 bd-content overflow-auto" role="main">
+    
+    <div class="topbar container-xl fixed-top">
+    <div class="topbar-contents row">
+        <div class="col-12 col-md-3 bd-topbar-whitespace site-navigation show"></div>
+        <div class="col pl-md-4 topbar-main">
+            
+            <button id="navbar-toggler" class="navbar-toggler ml-0" type="button" data-toggle="collapse"
+                data-toggle="tooltip" data-placement="bottom" data-target=".site-navigation" aria-controls="navbar-menu"
+                aria-expanded="true" aria-label="Toggle navigation" aria-controls="site-navigation"
+                title="Toggle navigation" data-toggle="tooltip" data-placement="left">
+                <i class="fas fa-bars"></i>
+                <i class="fas fa-arrow-left"></i>
+                <i class="fas fa-arrow-up"></i>
+            </button>
+            
+            
+<div class="dropdown-buttons-trigger">
+    <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn" aria-label="Download this page"><i
+            class="fas fa-download"></i></button>
+
+    <div class="dropdown-buttons">
+        <!-- ipynb file if we had a myst markdown file -->
+        
+        <!-- Download raw file -->
+        <a class="dropdown-buttons" href="../_sources/docs/paper-structure.md"><button type="button"
+                class="btn btn-secondary topbarbtn" title="Download source file" data-toggle="tooltip"
+                data-placement="left">.md</button></a>
+        <!-- Download PDF via print -->
+        <button type="button" id="download-print" class="btn btn-secondary topbarbtn" title="Print to PDF"
+                onclick="printPdf(this)" data-toggle="tooltip" data-placement="left">.pdf</button>
+    </div>
+</div>
+
+            <!-- Source interaction buttons -->
+
+<div class="dropdown-buttons-trigger">
+    <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn"
+        aria-label="Connect with source repository"><i class="fab fa-github"></i></button>
+    <div class="dropdown-buttons sourcebuttons">
+        <a class="repository-button"
+            href="https://github.com/A-Telfer/bapipe-keypoints"><button type="button" class="btn btn-secondary topbarbtn"
+                data-toggle="tooltip" data-placement="left" title="Source repository"><i
+                    class="fab fa-github"></i>repository</button></a>
+        <a class="issues-button"
+            href="https://github.com/A-Telfer/bapipe-keypoints/issues/new?title=Issue%20on%20page%20%2Fdocs/paper-structure.html&body=Your%20issue%20content%20here."><button
+                type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="left"
+                title="Open an issue"><i class="fas fa-lightbulb"></i>open issue</button></a>
+        
+    </div>
+</div>
+
+            <!-- Full screen (wrap in <a> to have style consistency -->
+
+<a class="full-screen-button"><button type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip"
+        data-placement="bottom" onclick="toggleFullScreen()" aria-label="Fullscreen mode"
+        title="Fullscreen mode"><i
+            class="fas fa-expand"></i></button></a>
+
+            <!-- Launch buttons -->
+
+        </div>
+
+        <!-- Table of contents -->
+        <div class="d-none d-md-block col-md-2 bd-toc show noprint">
+            
+            <div class="tocsection onthispage pt-5 pb-3">
+                <i class="fas fa-list"></i> Contents
+            </div>
+            <nav id="bd-toc-nav" aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#a-post-deep-learning-pipeline-for-improving-analysis-reproducibility-in-the-open-field-test">
+   A post-Deep Learning pipeline for improving analysis reproducibility in the Open Field Test
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#abstract">
+   Abstract
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#introduction">
+   Introduction
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#behaviour-analysis-and-the-open-field-test">
+     Behaviour Analysis and the Open Field Test
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#keypoint-analysis-and-motivation-for-pipeline">
+     Keypoint analysis and motivation for pipeline
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#deep-learning-and-classic-analysis">
+     Deep Learning and Classic Analysis
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#noise">
+     Noise
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#methods">
+   Methods
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#extracted-features-and-speed">
+     Extracted features and speed
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#datasets-used">
+     Datasets used
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#removing-outliers">
+     Removing Outliers
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#correcting-for-perspectives">
+     Correcting for Perspectives
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#validation">
+     Validation
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#exploring-impact-of-zone-definitions">
+     Exploring impact of zone definitions
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#conclusion">
+   Conclusion
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#value-of-pipeline">
+     Value of Pipeline
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#impact-of-zone-shape-on-results">
+     Impact of Zone Shape on Results
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#discussion">
+   Discussion
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#error-from-operational-definitions">
+     Error from Operational Definitions
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#standardization-may-help-but-is-not-a-solution">
+     Standardization may help, but is not a solution
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#bibliography">
+   Bibliography
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#questions">
+     Questions
+    </a>
+   </li>
+  </ul>
+ </li>
+</ul>
+
+            </nav>
+        </div>
+    </div>
+</div>
+    <div id="main-content" class="row">
+        <div class="col-12 col-md-9 pl-md-3 pr-md-0">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1>Paper</h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#a-post-deep-learning-pipeline-for-improving-analysis-reproducibility-in-the-open-field-test">
+   A post-Deep Learning pipeline for improving analysis reproducibility in the Open Field Test
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#abstract">
+   Abstract
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#introduction">
+   Introduction
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#behaviour-analysis-and-the-open-field-test">
+     Behaviour Analysis and the Open Field Test
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#keypoint-analysis-and-motivation-for-pipeline">
+     Keypoint analysis and motivation for pipeline
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#deep-learning-and-classic-analysis">
+     Deep Learning and Classic Analysis
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#noise">
+     Noise
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#methods">
+   Methods
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#extracted-features-and-speed">
+     Extracted features and speed
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#datasets-used">
+     Datasets used
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#removing-outliers">
+     Removing Outliers
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#correcting-for-perspectives">
+     Correcting for Perspectives
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#validation">
+     Validation
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#exploring-impact-of-zone-definitions">
+     Exploring impact of zone definitions
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#conclusion">
+   Conclusion
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#value-of-pipeline">
+     Value of Pipeline
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#impact-of-zone-shape-on-results">
+     Impact of Zone Shape on Results
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#discussion">
+   Discussion
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#error-from-operational-definitions">
+     Error from Operational Definitions
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#standardization-may-help-but-is-not-a-solution">
+     Standardization may help, but is not a solution
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#bibliography">
+   Bibliography
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#questions">
+     Questions
+    </a>
+   </li>
+  </ul>
+ </li>
+</ul>
+
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            
+              <div>
+                
+  <div class="tex2jax_ignore mathjax_ignore section" id="paper">
+<h1>Paper<a class="headerlink" href="#paper" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="a-post-deep-learning-pipeline-for-improving-analysis-reproducibility-in-the-open-field-test">
+<h2>A post-Deep Learning pipeline for improving analysis reproducibility in the Open Field Test<a class="headerlink" href="#a-post-deep-learning-pipeline-for-improving-analysis-reproducibility-in-the-open-field-test" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Draft for BioRxiv paper</p>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Anonymize and publish data with paper necessary to get these results?</p>
+<ul class="simple">
+<li><p>can update to cite research data is from when published (Frances &amp; Vern)</p></li>
+</ul>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Reproduce all graphs using current pipeline version and publish</p>
+</div>
+</div>
+<div class="section" id="abstract">
+<h2>Abstract<a class="headerlink" href="#abstract" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Rising interest in deep learning methods</p></li>
+<li><p>Growing pains for labs: many struggle to turn this new wealth of data into publishable results</p></li>
+<li><p>Show how to turn the outputs of keypoint-based deep learning tools such as DeepLabCut into common behaviour measures for the Open Field Test</p>
+<ul>
+<li><p>Many of these measurements are useful for other behavioural paradigms</p></li>
+</ul>
+</li>
+<li><p>These results are comparable to manual analysis, including catching errors in manual analysis.</p></li>
+<li><p>Introduce two useful features that are uncommon in current behaviour analysis software</p>
+<ol class="simple">
+<li><p>Registration of arena in order to account for differences between videos: a common issue for many labs using shared experimental spaces.</p></li>
+<li><p>Real-time analysis dashboard for behaviour analysis parameters: something that is not possible for many of the slower existing systems.</p></li>
+</ol>
+</li>
+<li><p>Use pipeline to demonstrate a reproducibility risk in traditional behavioral analysis.</p>
+<ul>
+<li><p>Example of zone-based behaviour measurements, e.g. the potential impact of arbitrary or standardized definitions for the zones.</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="behaviour-analysis-and-the-open-field-test">
+<h3>Behaviour Analysis and the Open Field Test<a class="headerlink" href="#behaviour-analysis-and-the-open-field-test" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Open Field Test is a behavioral paradigm working for mouse models</p></li>
+<li><p>Involves placing mice in an uncovered box</p></li>
+<li><p>Traditionally has been used for testing anxiolytics drugs</p>
+<ul>
+<li><p>Like other behavioural paradigms (e.g. elevated plus maze), mice tend to avoid open areas where predators are able to catch them</p></li>
+<li><p>Time spent in corners vs open areas is used as a measure of anxiety-like behaviour</p></li>
+</ul>
+</li>
+<li><p>The open field test has been a popular test to adapt to a wide number of other experiment designs</p>
+<ul>
+<li><p>Locomotivity (e.g. depressive-like behaviours)</p></li>
+<li><p>Food-related motivation by placing food in center area (e.g. Ghrelin)</p></li>
+<li><p>Gait/stride (e.g. Parkinson’s and Huntington’s models)</p></li>
+<li><p>…</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="keypoint-analysis-and-motivation-for-pipeline">
+<h3>Keypoint analysis and motivation for pipeline<a class="headerlink" href="#keypoint-analysis-and-motivation-for-pipeline" title="Permalink to this headline">¶</a></h3>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Demonstrative figure with DLC-labelled points</p>
+</div>
+<ul class="simple">
+<li><p>The field of Deep learning (a subfield of Machine Learning and Artificial Intelligence) has met rapid growth in recent years and success in dealing with many challenging problems.</p></li>
+<li><p>This growth has diffused across industry and research, with the life sciences gaining several new open-source deep-learning tools for behaviour analysis currently capable of outperforming commercial systems <span id="id1">[<a class="reference internal" href="#id6" title="Oliver Sturman, Lukas von Ziegler, Christa Schläppi, Furkan Akyol, Mattia Privitera, Daria Slominski, Christina Grimm, Laetitia Thieren, Valerio Zerbi, Benjamin Grewe, and Johannes Bohacek. Deep learning-based behavioral analysis reaches human accuracy and is capable of outperforming commercial solutions. Neuropsychopharmacology, 45(11):1942–1952, October 2020. Number: 11 Publisher: Nature Publishing Group. URL: https://www.nature.com/articles/s41386-020-0776-y (visited on 2022-05-24), doi:10.1038/s41386-020-0776-y.">Sturman <em>et al.</em>, 2020</a>]</span></p></li>
+<li><p>Some of these tools can be trained to track keypoints on the animal’s body, such as nose, ears, hands, and feet <span id="id2">[<a class="reference internal" href="#id5" title="Alexander Mathis, Pranav Mamidanna, Kevin M. Cury, Taiga Abe, Venkatesh N. Murthy, Mackenzie Weygandt Mathis, and Matthias Bethge. DeepLabCut: markerless pose estimation of user-defined body parts with deep learning. Nature Neuroscience, 21(9):1281–1289, September 2018. URL: http://www.nature.com/articles/s41593-018-0209-y (visited on 2022-05-24), doi:10.1038/s41593-018-0209-y.">Mathis <em>et al.</em>, 2018</a>, <a class="reference internal" href="#id4" title="Talmo D. Pereira, Nathaniel Tabris, Junyu Li, Shruthi Ravindranath, Eleni S. Papadoyannis, Z. Yan Wang, David M. Turner, Grace McKenzie-Smith, Sarah D. Kocher, Annegret L. Falkner, Joshua W. Shaevitz, and Mala Murthy. SLEAP: Multi-animal pose tracking. Technical Report, bioRxiv, September 2020. Section: New Results Type: article. URL: https://www.biorxiv.org/content/10.1101/2020.08.31.276246v1 (visited on 2022-05-24), doi:10.1101/2020.08.31.276246.">Pereira <em>et al.</em>, 2020</a>]</span></p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">{x,</span> <span class="pre">y}</span></code> coordinate data produced these models are quite flexible to later pipelines compared to other approaches directly performing classification on images or videos.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{x,y}</span></code> coordinates are useful for a range of behavioural measurements, including</p>
+<ul>
+<li><p>time in zones/near objects</p></li>
+<li><p>behaviour/action classification</p></li>
+<li><p>identity tracking</p></li>
+</ul>
+</li>
+<li><p>While performing operations on these coordinate outputs are trivial for some, many labs coming from more traditional methods are facing growing pains</p></li>
+<li><p>As such, we believe it would be valuable for presenting a post deep-learning pipeline for turning coordinate data into some common and meaningful measurements and publishable figures</p></li>
+</ul>
+</div>
+<div class="section" id="deep-learning-and-classic-analysis">
+<h3>Deep Learning and Classic Analysis<a class="headerlink" href="#deep-learning-and-classic-analysis" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p>Full deep learning analysis are becoming more common</p></li>
+<li><p>These open many doors</p>
+<ul class="simple">
+<li><p>Behavioural classification (grooming behaviours)</p></li>
+<li><p>Facial expressions</p></li>
+<li><p>Unsupervised behavioural deviations</p></li>
+</ul>
+</li>
+<li><p>Classic analysis gives us a more direct comparison to past research and known correlations to changes in the brain</p>
+<ul class="simple">
+<li><p>For example, it is valuable to know when using mouse models of Parkinson’s that stride can be a meaningful feature associated with degeneration in the basal ganglia.</p></li>
+</ul>
+</li>
+<li><p>Ability to ask specific questions: does X affect time in center area?</p>
+<ul>
+<li><p>Deep learning models are well suited to working out complicated rules such as where is X (which can have a variety of poses and appearances), or what action is X performing (where there may be many ways to perform the action)</p>
+<ul class="simple">
+<li><p>More simply, deep learning is suited to discovering new features and working out complicated rules which we would struggle to define, in order to reach a desired outcome.</p></li>
+<li><p>Using deep learning where classical methods suffice only serves to reduce transparency of how the models work</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Currently there is a lot of work to increase reproducibility, but I think it remains a fair comment</p>
+</div>
+</li>
+<li><p>Complimentary to classic analysis, deep-learning can extract basic information for rule-based systems to use</p></li>
+</ul>
+</li>
+<li><p>Deep Learning is an exciting tool for behaviour analysis that has the potential to identify behaviours at a level previously unavailable to us.</p></li>
+<li><p>Does not replace the value of classic analysis for targetted questions</p></li>
+</ul>
+</div>
+<div class="section" id="noise">
+<h3>Noise<a class="headerlink" href="#noise" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>The ability to reproduce results is core to the validation of theories</p></li>
+<li><p>Beneath reproducibility lies noise</p></li>
+<li><p>The life sciences have an abundance of noise, especially behaivoural studies where variations in different areas such as environment, strain, and handling can all affect outcome</p></li>
+<li><p>Noise can also come up during analysis</p></li>
+<li><p>For example, one researcher may define a behavior slightly differently from another researcher (e.g. especially for challinging behaviours such as eating where a mouse may take a bite of food elsewhere to nibble on it which may look similar to sniffing or grooming)</p></li>
+<li><p>The impacts of noise are also often undervalued by experts (TODO: reference to Noise by Kahneman et al.)</p></li>
+<li><p>Computer analysis is well suited to removing much of this noise, however it does not eliminate it</p></li>
+<li><p>Machine Bias:</p>
+<ul>
+<li><p>Machines have their own bias</p></li>
+<li><p>While using a single form of bias has less noise, it can also be incorrect.</p></li>
+<li><p>For example, traditional machine learning models that many behavioural analysis programs still use are often poor at handling noisy environments</p></li>
+<li><p>The machine-position of mice can jump as they interact with their environment which is different from what the model is trained on</p></li>
+<li><p>A solution for this has been discussed in deep learning by readding back noise. For example, training many models to perform the same task, or randomly enabling/disabling neural circuits in deep learning models.</p></li>
+<li><p>So eliminating noise at the cost of greater risk to bias is not desirable</p></li>
+</ul>
+</li>
+<li><p>Human input/decisions also add noise to computer analysis.</p></li>
+</ul>
+<div class="figure align-default" id="id7">
+<img alt="../_images/compare-original-to-corrected.png" src="../_images/compare-original-to-corrected.png" />
+<p class="caption"><span class="caption-number">Fig. 1 </span><span class="caption-text">On the left, the original videos can be seen with clear differences between many of them. On the right we can see the corrected videos using our registration steps.</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</div>
+<ul class="simple">
+<li><p>In the Open Field Test, many popular automated tools for performing behaviour analysis require the redrawing of zones when the videos are not aligned</p>
+<ul>
+<li><p>These variation between videos are common, as animal facilities</p></li>
+<li><p>Labs sharing these spaces are often required to set up their equipment each session, leading to some variation even when trying to mimic the setup as closely as possible.</p></li>
+<li><p>This type of noise is not desirable, and we show it may in fact be affected by camera angle (e.g. we cannot fully account for changes in camera perspective, which therefore affect the shape of our zones)</p></li>
+<li><p>We can remove this perspective-noise and therefore eliminate the need to redraw zones</p></li>
+<li><p>This also allows to explore the impact of how slight differences in zone size can affect reproducibility</p></li>
+</ul>
+</li>
+</ul>
+<div class="admonition-recreate-simulated-manual-analysis admonition">
+<p class="admonition-title">Recreate simulated manual analysis</p>
+<p>Originally I performed an automated analysis using average size of manually drawn boxes for each user.</p>
+<p>I found that different users would have different results if they had analyzed the whole experiment</p>
+</div>
+<div class="admonition-intra-rater-noise admonition">
+<p class="admonition-title">Intra-rater noise</p>
+<p>Users draw zone and manually score area, how well do their reviews correlate to automatic analysis performed using the zone</p>
+<ul class="simple">
+<li><p>perhaps use a sample of videos and get them to exactly record when the mouse is in the zone or not to see where scores are unaligned?</p></li>
+</ul>
+</div>
+<div class="admonition-defining-zones-before-after admonition">
+<p class="admonition-title">Defining Zones before/after</p>
+<p>How well do researchers record what they scored?</p>
+<ul class="simple">
+<li><p>e.g. motorcycle countersteering example, experts often don’t know the exact rules they use to perform a task</p></li>
+</ul>
+<p>Get someone to define a zone before and score videos according to zone, vs defining the zone after.</p>
+<ul class="simple">
+<li><p>how well do the scores correlate with automatic analysis based on the zone size</p></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="extracted-features-and-speed">
+<h3>Extracted features and speed<a class="headerlink" href="#extracted-features-and-speed" title="Permalink to this headline">¶</a></h3>
+<p>While other models focus on more complicated behaviour analysis, we focus more on core features that can be extracted from coordinate data without the need for traditional models.</p>
+<p>One thing that is special about our approach is that our image registration steps mean that we report our measurements in real units and not pixels. Our approach is more accurate than a simple pixel-unit conversion due to correcting for lens warping and perspective which can greatly skew measurements in some cases (moving on near side of box being given twice the weight as moving on the far side).</p>
+<ul class="simple">
+<li><p>locomotivity</p>
+<ul>
+<li><p>distance travelled</p></li>
+<li><p>top 5%, bottom 5%, and median speeds</p></li>
+</ul>
+</li>
+<li><p>time in zones (simulating noise in zones)</p></li>
+<li><p>latency to first approach (e.g. first time entering a zone)</p></li>
+<li><p>representative figures (provided by DLC, no need for our code)</p></li>
+<li><p>heatmaps</p></li>
+</ul>
+<p>One note is that time in zones should not necessarily be used for a measurement of behaviour (e.g. time spent eating). We found a relatively low correlation between proximity-based automatic scoring and human based analysis for these features. This reflects the classic problem of measuring A and hoping for B, measuring complex behaviours should be done through further behaviour classification models.</p>
+<div class="figure align-default" id="fran-heatmaps-figure">
+<img alt="../_images/fran-heatmaps.png" src="../_images/fran-heatmaps.png" />
+<p class="caption"><span class="caption-number">Fig. 2 </span><span class="caption-text">Heatmap produced using our pipeline. By accounting for shifts in camera perspective between video, we could aggregate time in areas for each group.</span><a class="headerlink" href="#fran-heatmaps-figure" title="Permalink to this image">¶</a></p>
+</div>
+</div>
+<div class="section" id="datasets-used">
+<h3>Datasets used<a class="headerlink" href="#datasets-used" title="Permalink to this headline">¶</a></h3>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Write up in more detail, include image examples for each video</p>
+</div>
+<ul class="simple">
+<li><p>Two open field test experiments</p>
+<ul>
+<li><p>n=80, and n&gt;100</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="removing-outliers">
+<h3>Removing Outliers<a class="headerlink" href="#removing-outliers" title="Permalink to this headline">¶</a></h3>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Provide example images of removed outliers to show motivation better
+… and to confirm motivation. I get a bit caught up in preemptive issues sometimes that turn out to be virtually irrelevant. This may be one of them</p>
+<ul class="simple">
+<li><p>Ahamd’s SIT experiment will probably be the best demonstration</p></li>
+</ul>
+</div>
+<ul>
+<li><p>may be negligible in good quality videos for certain measurments such as time in zone</p></li>
+<li><p>can create a jump in readings for measurements such as distance, especially in low quality videos or where the mouse can become occluded</p>
+<ul class="simple">
+<li><p>particularly an issue in videos where humans struggle to provide labeled exampels for the model</p></li>
+</ul>
+</li>
+<li><p>low confidence in DLC models is not a true probability</p>
+<ul class="simple">
+<li><p>it reports the models internal confidence, different models will report different confidences for a bodypart being in a same location</p></li>
+<li><p>occasionally very confident in a wrong point</p></li>
+<li><p>many of these can be corrected by retraining a model, however even after several iterations errors can still remain. Furthermore, the randomness involved in training deep learning models means that new errors may occur as old ones are eliminated (e.g. focusing more of your dataset on one type of erroneous outlier may cause the model to undervalue its errors on other types of outliers you had already reduced)</p></li>
+<li><p>removing outliers can therefore be a necessary sanity check for the model</p></li>
+</ul>
+</li>
+<li><p>Detecting outliers</p>
+<ul>
+<li><p>bodypart distances, movement distances, etc</p></li>
+<li><p>normalization</p>
+<ul class="simple">
+<li><p>SVD</p></li>
+<li><p>relative coordinates vs global coordinates, e.g. do we care if the mouse is in an outlier area (perhaps climbing something, or in an outlier position</p></li>
+</ul>
+</li>
+<li><p>Deciding outlier thresholds: standard deviation vs other methods, e.g.</p>
+<ul>
+<li><p>isolation forests</p>
+<div class="admonition-untried admonition">
+<p class="admonition-title">Untried</p>
+<p>naive bayes?</p>
+</div>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Correcting points:</p>
+<ul class="simple">
+<li><p>Leaving empty points can make later analysis difficult</p></li>
+<li><p>Filling a point with previous values can be very wrong</p></li>
+<li><p>Interpolations are perhaps the best solution, but also can be noticably very wrong in videos</p></li>
+</ul>
+</li>
+</ul>
+<div class="admonition-in-progress-include admonition">
+<p class="admonition-title">In Progress (include?)</p>
+<ul class="simple">
+<li><p>Autoencoders [in progress]: detecting and correcting outliers</p>
+<ul>
+<li><p>bottlenecking forces the model to decide what information is important and what isnt</p></li>
+<li><p>bodyparts can only be so far away, and in certain configurations. The model can discard some information about the location of bodyparts if it learns the skeletal structure of the animal.</p></li>
+<li><p>very rare situations can still be undervalued</p>
+<ul>
+<li><p>perhaps fixed by increasing training weight of these examples (boosting?)</p></li>
+<li><p>however greater risk of learning errors</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="correcting-for-perspectives">
+<h3>Correcting for Perspectives<a class="headerlink" href="#correcting-for-perspectives" title="Permalink to this headline">¶</a></h3>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Insert useful illustration that shows process (existing one is screen-shotted from google-slide presentations)</p>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Obligatory math section to pretend I wasn’t just calling functions I didn’t understand (which is exactly what I did since I could easily just see if it worked or not, but it would be good to understand it now)</p>
+</div>
+<ul class="simple">
+<li><p>Photogrammetry techniques can be used</p>
+<ul>
+<li><p>Intrinsic calibration: requires only a video of a checkerboard</p></li>
+<li><p>Extrinsic calibration: manually register points on the box in each frame</p></li>
+</ul>
+</li>
+<li><p>Correcting for perspective reduces noise in zone drawing</p></li>
+</ul>
+</div>
+<div class="section" id="validation">
+<h3>Validation<a class="headerlink" href="#validation" title="Permalink to this headline">¶</a></h3>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Recreate manual-automatic correlations for full datasets with manual scores (re:Frances)</p>
+</div>
+<ul class="simple">
+<li><p>High correlation with manual analysis</p></li>
+<li><p>Stochastic gradient descent to match parameters to humans</p>
+<ul>
+<li><p>Ahmad’s SIT experiment: zone size produced values too small for some videos and too large for others. Highlighting intra-rater variability in manual scores.</p></li>
+</ul>
+</li>
+<li><p>Catching outliers in the manual approach (reviewed only easy to check features like latency to first approach)
+Unfortunately some of these notes are difficult to recover with laptop lost</p></li>
+</ul>
+</div>
+<div class="section" id="exploring-impact-of-zone-definitions">
+<h3>Exploring impact of zone definitions<a class="headerlink" href="#exploring-impact-of-zone-definitions" title="Permalink to this headline">¶</a></h3>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Illustration of different zones</p>
+</div>
+<ul class="simple">
+<li><p>using the pipeiline videos, it’s trivial to programmatically vary zone size and automatically apply across the normalized videos</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="value-of-pipeline">
+<h3>Value of Pipeline<a class="headerlink" href="#value-of-pipeline" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Most simply: we have a simple pipeline for extracting core features for behaviour analysis</p></li>
+<li><p>Add features that are useful to experienced developers, such as a multi-processing based api.</p></li>
+<li><p>Removal of outliers</p></li>
+<li><p>Optional ability to perform image registration and remove lens warping</p></li>
+<li><p>Validation</p>
+<ul>
+<li><p>Comparison to manual methods (caught outliers in manual methods)</p></li>
+<li><p>Correcting for perspective changes/translation to real units</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="impact-of-zone-shape-on-results">
+<h3>Impact of Zone Shape on Results<a class="headerlink" href="#impact-of-zone-shape-on-results" title="Permalink to this headline">¶</a></h3>
+<div class="figure align-default" id="id8">
+<img alt="../_images/significance-events.png" src="../_images/significance-events.png" />
+<p class="caption"><span class="caption-number">Fig. 3 </span><span class="caption-text">p-values between groups change on orders of magnitude as center area size changes</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</div>
+<div class="admonition-rerun-for-both-datasets admonition">
+<p class="admonition-title">Rerun for both datasets</p>
+<p>Data may have only been from cohort1 of Fran’s data - likely less noisy with all cohorts</p>
+<ul class="simple">
+<li><p>Verns data on the other hand appears quite noisy with all cohorts</p></li>
+</ul>
+</div>
+<div class="figure align-default" id="vern-heatmap">
+<img alt="../_images/vern-heatmap-obfuscated-groups.png" src="../_images/vern-heatmap-obfuscated-groups.png" />
+<p class="caption"><span class="caption-number">Fig. 4 </span><span class="caption-text">Ideal data would have a more diffuse heatmap, however here we see some behavioural variation in where the mice spend their time.</span><a class="headerlink" href="#vern-heatmap" title="Permalink to this image">¶</a></p>
+</div>
+<ul class="simple">
+<li><p>Including/excluding zones here</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="discussion">
+<h2>Discussion<a class="headerlink" href="#discussion" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="error-from-operational-definitions">
+<h3>Error from Operational Definitions<a class="headerlink" href="#error-from-operational-definitions" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Current behaviour analysis tools reflect popular opinions that analysis is robust to noise</p>
+<ul>
+<li><p>Intuitively, growing the center area 1cm shouldn’t reflect a great change in neural state</p></li>
+<li><p>Practically, not the case. We do see big changes in our statistical results.</p></li>
+<li><p>Though it would have been virtually impossible to explore the impact of zone size on measurements in the past, it is trivial using automatated analysis from a standardized perspective</p></li>
+<li><p>Our approach simplifies this even further by removing the time constraint which commercial</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="standardization-may-help-but-is-not-a-solution">
+<h3>Standardization may help, but is not a solution<a class="headerlink" href="#standardization-may-help-but-is-not-a-solution" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Argument against standardization</p>
+<ul>
+<li><p>Being over specific also may also affect translatability. e.g. if we achieve reproducibility for a treatment in one mouse model of Parkinson’s but another.</p>
+<ul>
+<li><p>TODO: insert the paper mentioning increasing variability in behavioural experiments</p></li>
+</ul>
+</li>
+<li><p>There is noise in the data, and current experiment sizes often cannot smooth this out (Evidence in heatmaps hotspots) <a class="reference internal" href="#vern-heatmap"><span class="std std-numref">Fig 4</span></a></p></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="bibliography">
+<h2>Bibliography<a class="headerlink" href="#bibliography" title="Permalink to this headline">¶</a></h2>
+<div class="docutils container" id="id3">
+<dl class="citation">
+<dt class="label" id="id5"><span class="brackets"><a class="fn-backref" href="#id2">MMC+18</a></span></dt>
+<dd><p>Alexander Mathis, Pranav Mamidanna, Kevin M. Cury, Taiga Abe, Venkatesh N. Murthy, Mackenzie Weygandt Mathis, and Matthias Bethge. DeepLabCut: markerless pose estimation of user-defined body parts with deep learning. <em>Nature Neuroscience</em>, 21(9):1281–1289, September 2018. URL: <a class="reference external" href="http://www.nature.com/articles/s41593-018-0209-y">http://www.nature.com/articles/s41593-018-0209-y</a> (visited on 2022-05-24), <a class="reference external" href="https://doi.org/10.1038/s41593-018-0209-y">doi:10.1038/s41593-018-0209-y</a>.</p>
+</dd>
+<dt class="label" id="id4"><span class="brackets"><a class="fn-backref" href="#id2">PTL+20</a></span></dt>
+<dd><p>Talmo D. Pereira, Nathaniel Tabris, Junyu Li, Shruthi Ravindranath, Eleni S. Papadoyannis, Z. Yan Wang, David M. Turner, Grace McKenzie-Smith, Sarah D. Kocher, Annegret L. Falkner, Joshua W. Shaevitz, and Mala Murthy. SLEAP: Multi-animal pose tracking. Technical Report, bioRxiv, September 2020. Section: New Results Type: article. URL: <a class="reference external" href="https://www.biorxiv.org/content/10.1101/2020.08.31.276246v1">https://www.biorxiv.org/content/10.1101/2020.08.31.276246v1</a> (visited on 2022-05-24), <a class="reference external" href="https://doi.org/10.1101/2020.08.31.276246">doi:10.1101/2020.08.31.276246</a>.</p>
+</dd>
+<dt class="label" id="id6"><span class="brackets"><a class="fn-backref" href="#id1">SvZS+20</a></span></dt>
+<dd><p>Oliver Sturman, Lukas von Ziegler, Christa Schläppi, Furkan Akyol, Mattia Privitera, Daria Slominski, Christina Grimm, Laetitia Thieren, Valerio Zerbi, Benjamin Grewe, and Johannes Bohacek. Deep learning-based behavioral analysis reaches human accuracy and is capable of outperforming commercial solutions. <em>Neuropsychopharmacology</em>, 45(11):1942–1952, October 2020. Number: 11 Publisher: Nature Publishing Group. URL: <a class="reference external" href="https://www.nature.com/articles/s41386-020-0776-y">https://www.nature.com/articles/s41386-020-0776-y</a> (visited on 2022-05-24), <a class="reference external" href="https://doi.org/10.1038/s41386-020-0776-y">doi:10.1038/s41386-020-0776-y</a>.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="questions">
+<h3>Questions<a class="headerlink" href="#questions" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Does adding noise to zones corners improve reproducibility (which can be defined as a smoothing of the man-whitney U curves)</p>
+<ul>
+<li><p>Smoothing of the distribution can be measure by smaller gradients (e.g. sum gradients)</p></li>
+</ul>
+</li>
+<li><p>Which corners have greater variation from perfect squares in the manual zone drawing</p></li>
+</ul>
+</div>
+</div>
+</div>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            kernelName: "python3",
+            path: "./docs"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+              </div>
+              
+            
+                <!-- Previous / next buttons -->
+<div class='prev-next-area'> 
+    <a class='left-prev' id="prev-link" href="intro.html" title="previous page">
+        <i class="fas fa-angle-left"></i>
+        <div class="prev-next-info">
+            <p class="prev-next-subtitle">previous</p>
+            <p class="prev-next-title">Behavior Analysis for Keypoints Pipeline</p>
+        </div>
+    </a>
+    <a class='right-next' id="next-link" href="markdown.html" title="next page">
+    <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Markdown Files</p>
+    </div>
+    <i class="fas fa-angle-right"></i>
+    </a>
+</div>
+            
+        </div>
+    </div>
+    <footer class="footer">
+  <p>
+    
+      By Andre Telfer<br/>
+    
+        &copy; Copyright 2021.<br/>
+  </p>
+</footer>
+</main>
+
+
+      </div>
+    </div>
+  
+  <script src="../_static/js/index.be7d3bbb2ef33a8344ce.js"></script>
+
+  </body>
+</html>

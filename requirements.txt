@@ -1,4 +1,5 @@
 jupyter-book
 matplotlib
 numpy
+pydata-sphinx-theme
 opencv-python>=4.5
