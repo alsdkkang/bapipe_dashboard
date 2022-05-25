@@ -1,4 +1,5 @@
 # Paper
+
 ## A post-Deep Learning pipeline for improving analysis reproducibility in the Open Field Test
 ```{warning}
 Draft for BioRxiv paper
@@ -10,6 +11,7 @@ Anonymize and publish data with paper necessary to get these results?
 ```{attention}
 Reproduce all graphs using current pipeline version and publish
 ```
+
 ## Abstract
 - Rising interest in deep learning methods
 - Growing pains for labs: many struggle to turn this new wealth of data into publishable results
@@ -240,6 +242,13 @@ name: vern-heatmap
 Ideal data would have a more diffuse heatmap, however here we see some behavioural variation in where the mice spend their time.
 ```
 
+```{figure} assets/histogram-of-group-distances-to-center.png
+We see some of this variation in the histograms of distance to center. Small spikes can occur.
+```
+
+```{figure} assets/histogram-of-distance-to-center.png
+On total histograms with a higher number of samples, these distributions appear much smoother
+```
 - Including/excluding zones here 
 
 ## Discussion
@@ -256,6 +265,10 @@ Ideal data would have a more diffuse heatmap, however here we see some behaviour
     - TODO: insert the paper mentioning increasing variability in behavioural experiments
   - There is noise in the data, and current experiment sizes often cannot smooth this out (Evidence in heatmaps hotspots) {numref}`Fig {number} <vern-heatmap>`
 
+```{admonition} Retry KL-Divergence with full data
+Wasn't correctly implemented before, may be worthwhile to revisit
+```
+
 ## Bibliography
 ```{bibliography}
 :filter: docname in docnames
@@ -265,3 +278,15 @@ Ideal data would have a more diffuse heatmap, however here we see some behaviour
 - Does adding noise to zones corners improve reproducibility (which can be defined as a smoothing of the man-whitney U curves)
   - Smoothing of the distribution can be measure by smaller gradients (e.g. sum gradients)
 - Which corners have greater variation from perfect squares in the manual zone drawing
+
+## Appendix
+### Datastructure required to use pipeline
+- Minimally
+  - Behavioural videos. Handles one animal per video, consider using ShotCut to crop videos. Note that cropping videos may prevent intrinsic calibration later (correcting for lens warping).
+  - DLC labels for the videos
+- Registration [completed using tool]
+  - Extrinsic registration: 
+    - Draw registration points on top of the original videos (points should relate to the arena, such as corner locations)
+    - The true coordinates (in real units such as mm) should be listed in the config.yaml file
+  - Intrinsic calibration: 
+    - A video of a chessboard (can be printed)

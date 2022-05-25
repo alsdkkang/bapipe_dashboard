@@ -326,6 +326,18 @@ const thebe_selector_output = ".output, .cell_output"
    </li>
   </ul>
  </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#appendix">
+   Appendix
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#datastructure-required-to-use-pipeline">
+     Datastructure required to use pipeline
+    </a>
+   </li>
+  </ul>
+ </li>
 </ul>
 
             </nav>
@@ -462,6 +474,18 @@ const thebe_selector_output = ".output, .cell_output"
    <li class="toc-h3 nav-item toc-entry">
     <a class="reference internal nav-link" href="#questions">
      Questions
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#appendix">
+   Appendix
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#datastructure-required-to-use-pipeline">
+     Datastructure required to use pipeline
     </a>
    </li>
   </ul>
@@ -853,6 +877,14 @@ Unfortunately some of these notes are difficult to recover with laptop lost</p><
 <img alt="../_images/vern-heatmap-obfuscated-groups.png" src="../_images/vern-heatmap-obfuscated-groups.png" />
 <p class="caption"><span class="caption-number">Fig. 4 </span><span class="caption-text">Ideal data would have a more diffuse heatmap, however here we see some behavioural variation in where the mice spend their time.</span><a class="headerlink" href="#vern-heatmap" title="Permalink to this image">¶</a></p>
 </div>
+<div class="figure align-default" id="id9">
+<img alt="../_images/histogram-of-group-distances-to-center.png" src="../_images/histogram-of-group-distances-to-center.png" />
+<p class="caption"><span class="caption-number">Fig. 5 </span><span class="caption-text">We see some of this variation in the histograms of distance to center. Small spikes can occur.</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id10">
+<img alt="../_images/histogram-of-distance-to-center.png" src="../_images/histogram-of-distance-to-center.png" />
+<p class="caption"><span class="caption-number">Fig. 6 </span><span class="caption-text">On total histograms with a higher number of samples, these distributions appear much smoother</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</div>
 <ul class="simple">
 <li><p>Including/excluding zones here</p></li>
 </ul>
@@ -887,6 +919,10 @@ Unfortunately some of these notes are difficult to recover with laptop lost</p><
 </ul>
 </li>
 </ul>
+<div class="admonition-retry-kl-divergence-with-full-data admonition">
+<p class="admonition-title">Retry KL-Divergence with full data</p>
+<p>Wasn’t correctly implemented before, may be worthwhile to revisit</p>
+</div>
 </div>
 </div>
 <div class="section" id="bibliography">
@@ -913,6 +949,35 @@ Unfortunately some of these notes are difficult to recover with laptop lost</p><
 </ul>
 </li>
 <li><p>Which corners have greater variation from perfect squares in the manual zone drawing</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="appendix">
+<h2>Appendix<a class="headerlink" href="#appendix" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="datastructure-required-to-use-pipeline">
+<h3>Datastructure required to use pipeline<a class="headerlink" href="#datastructure-required-to-use-pipeline" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Minimally</p>
+<ul>
+<li><p>Behavioural videos. Handles one animal per video, consider using ShotCut to crop videos. Note that cropping videos may prevent intrinsic calibration later (correcting for lens warping).</p></li>
+<li><p>DLC labels for the videos</p></li>
+</ul>
+</li>
+<li><p>Registration [completed using tool]</p>
+<ul>
+<li><p>Extrinsic registration:</p>
+<ul>
+<li><p>Draw registration points on top of the original videos (points should relate to the arena, such as corner locations)</p></li>
+<li><p>The true coordinates (in real units such as mm) should be listed in the config.yaml file</p></li>
+</ul>
+</li>
+<li><p>Intrinsic calibration:</p>
+<ul>
+<li><p>A video of a chessboard (can be printed)</p></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
