@@ -299,6 +299,119 @@ def render_welcome():
                 records.mark_onboarded(current_user_key()); go("wizard")
 
 
+def _autodetect_box(silent=False):
+    """Estimate arena (width, height) from the first manifest row's labelled
+    landmark corners, writing box_w/box_h into session_state. Best-effort:
+    on any failure, keeps whatever box_w/box_h are already set (the 400x300
+    default from the defaults block) and — unless ``silent`` — surfaces the
+    error so a user pressing "Re-detect" gets feedback."""
+    try:
+        row = manifest_df.iloc[0]
+        landmark_path = Path(root_dir) / row["landmark_labels"]
+        w, h = analysis.detect_box_shape_from_landmarks(landmark_path, pcutoff=st.session_state["pcutoff"])
+        st.session_state["box_w"] = int(w)
+        st.session_state["box_h"] = int(h)
+        if not silent:
+            st.success(f"Detected arena size: {w} × {h}.")
+        return True
+    except Exception as e:
+        if not silent:
+            st.error(f"Could not auto-detect arena size: {e}")
+        return False
+
+
+def _stepper(step):
+    labels = ["Choose data", "Select animals", "Configure"]
+    cols = st.columns(len(labels))
+    for i, lab in enumerate(labels):
+        mark = "✓" if i < step else str(i + 1)
+        cols[i].markdown(
+            f"<div style='text-align:center'><span class='avatar' "
+            f"style='background:{'#111' if i <= step else '#c2ccd8'}'>{mark}</span>"
+            f"<div style='font-size:13px;font-weight:600;color:"
+            f"{'#111' if i == step else '#6c7889'}'>{lab}</div></div>",
+            unsafe_allow_html=True)
+
+
+def render_wizard():
+    step = st.session_state.setdefault("wizard_step", 0)
+    if st.button("← Back to records", key="wiz_home"):
+        go("records")
+    _stepper(step)
+    st.divider()
+
+    if step == 0:  # choose data
+        st.subheader("Where is your experiment?")
+        st.text_input("Data folder", key="data_folder_input",
+                      help="Folder with the manifest CSV plus its videos and tracking files.")
+        if data_status:
+            (st.success if data_status[0] == "success" else st.error)(data_status[1])
+        st.text_input("Metadata CSV (optional)", key="meta_input")
+        st.text_input("Metadata join column", key="join_input")
+        if st.button("Next: select animals →", type="primary", disabled=manifest_df is None):
+            st.session_state["wizard_step"] = 1; st.rerun()
+
+    elif step == 1:  # select animals
+        st.subheader("Which animals to load?")
+        ids = manifest_df["id"].astype(str).tolist()
+        st.session_state.setdefault("wizard_sel",
+                                    {i: (k < 8) for k, i in enumerate(ids)})
+        cA, cB = st.columns(2)
+        if cA.button("Select all"):
+            st.session_state["wizard_sel"] = {i: True for i in ids}
+        if cB.button("Clear"):
+            st.session_state["wizard_sel"] = {i: False for i in ids}
+        with st.container(height=340):
+            for i in ids:
+                st.session_state["wizard_sel"][i] = st.checkbox(
+                    i, value=st.session_state["wizard_sel"].get(i, False), key=f"wsel_{i}")
+        n = sum(1 for v in st.session_state["wizard_sel"].values() if v)
+        st.caption(f"{n} of {len(ids)} selected")
+        b1, b2 = st.columns(2)
+        if b1.button("← Back"):
+            st.session_state["wizard_step"] = 0; st.rerun()
+        if b2.button("Next: configure →", type="primary", disabled=n == 0):
+            st.session_state["wizard_step"] = 2; st.rerun()
+
+    else:  # configure
+        st.subheader("Analysis settings")
+        if manifest_df is not None:
+            _autobox_key = str(manifest_path)
+            if st.session_state.get("_wizard_autobox_for") != _autobox_key:
+                st.session_state["_wizard_autobox_for"] = _autobox_key
+                _autodetect_box(silent=True)
+        # The re-detect button must run (and update box_w/box_h in session_state)
+        # BEFORE the number_input widgets below are instantiated — Streamlit
+        # forbids mutating a widget-bound session_state key after that widget
+        # has been created in the same run.
+        if st.button("Re-detect from arena corners", disabled=manifest_df is None):
+            _autodetect_box(silent=False)
+        c1, c2 = st.columns(2)
+        c1.number_input("Arena width", min_value=1, key="box_w")
+        c2.number_input("Arena height", min_value=1, key="box_h")
+        st.checkbox("Align videos to box", key="use_box_reference")
+        st.checkbox("Remove lens distortion", key="remove_lens")
+        if st.session_state["remove_lens"] and not cal_present:
+            st.warning("No camera_calibrations.json found — loading will fail with this on.")
+        with st.expander("Advanced: outlier filtering"):
+            st.slider("Tracking confidence cutoff (pcutoff)", 0.0, 1.0, key="pcutoff", step=0.05)
+            st.slider("Outlier sensitivity (σ)", 1.0, 6.0, key="outlier_sigmas", step=0.5)
+            st.number_input("Minimum bodyparts", min_value=1, key="min_bodyparts")
+            st.number_input("Mouse-in-box tolerance (frames)", min_value=1, key="mouse_in_box_tolerance")
+            st.checkbox("Filter by pairwise distance", key="use_pairwise")
+            st.checkbox("Filter by bodypart velocity", key="use_bodypart")
+            st.checkbox("Filter by centroid velocity", key="use_centroid")
+            st.checkbox("Filter by likelihood", key="use_likelihood")
+            st.checkbox("Filter by minimum bodyparts", key="use_min_bodyparts")
+        d1, d2 = st.columns(2)
+        if d1.button("← Back"):
+            st.session_state["wizard_step"] = 1; st.rerun()
+        sel_ids = [i for i, v in st.session_state.get("wizard_sel", {}).items() if v]
+        if d2.button(f"Load experiment ({len(sel_ids)})", type="primary", disabled=not sel_ids):
+            st.session_state["pending_load_ids"] = sel_ids
+            go("loading")
+
+
 # ---- phase router ----
 user_key = current_user_key()
 phase = routing.resolve_phase(records.is_onboarded(user_key),
@@ -311,7 +424,7 @@ elif phase == "guide":
     guide.render_guide(on_back=lambda: go("records"))
     st.stop()
 elif phase == "wizard":
-    st.info("Start wizard — implemented in Task 7.")
+    render_wizard()
     st.stop()
 elif phase == "loading":
     st.info("Loading — implemented in Task 8.")
