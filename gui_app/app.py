@@ -494,15 +494,7 @@ def render_top_bar(title, sub):
     c1.markdown(f"<div class='topbar'><div><div class='title'>{title}</div>"
                 f"<div class='sub'>{sub}</div></div></div>", unsafe_allow_html=True)
     with c2:
-        b1, b2 = st.columns(2)
-        if b1.button("Guide", key="app_guide", use_container_width=True):
-            go("guide")
-        if b2.button("Change data", key="app_change", use_container_width=True):
-            for k in ("video_set", "config", "metadata"):
-                st.session_state.pop(k, None)
-            st.session_state["wizard_step"] = 0
-            go("wizard")
-    auth.header_account()
+        auth.header_account()
 
 
 # ---- Overview ------------------------------------------------------------- #
@@ -863,6 +855,14 @@ elif phase == "app":
     if "video_set" not in st.session_state:
         go("wizard")
     render_top_bar("Analysis", "Explore your loaded experiment")
+    nav1, nav2, _ = st.columns([1, 1, 6])
+    if nav1.button("← Change data", key="app_change"):
+        for k in ("video_set", "config", "metadata"):
+            st.session_state.pop(k, None)
+        st.session_state["wizard_step"] = 0
+        go("wizard")
+    if nav2.button("Guide", key="app_guide"):
+        go("guide")
     video_set = st.session_state["video_set"]
     config = st.session_state["config"]
     metadata = st.session_state["metadata"]
