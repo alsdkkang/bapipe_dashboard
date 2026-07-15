@@ -8,6 +8,7 @@ path lists another user's records.
 
 The store directory is overridable via the BAPIPE_RECORDS_DIR env var (tests).
 """
+import hashlib
 import json
 import os
 import re
@@ -28,7 +29,9 @@ def user_key(email) -> str:
     email = (email or "").strip().lower()
     if not email:
         return "local"
-    return re.sub(r"[^a-z0-9]+", "_", email).strip("_") or "local"
+    slug = re.sub(r"[^a-z0-9]+", "_", email).strip("_")
+    h = hashlib.sha1(email.encode()).hexdigest()[:8]
+    return f"{slug}_{h}" if slug else h
 
 
 def _path(email) -> Path:

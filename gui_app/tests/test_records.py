@@ -32,6 +32,14 @@ def test_user_key_defaults_to_local(records):
     assert records.user_key("A.B@Example.com") == records.user_key("a.b@example.com")
 
 
+def test_user_key_distinguishes_punctuation_variants(records):
+    keys = {records.user_key("a.b@x.com"),
+            records.user_key("a-b@x.com"),
+            records.user_key("a_b@x.com")}
+    assert len(keys) == 3  # must NOT collide
+    assert records.user_key("Mix@X.com") == records.user_key("mix@x.com")  # still case-insensitive
+
+
 def test_onboarded_roundtrip(records):
     assert records.is_onboarded("u@x.com") is False
     records.mark_onboarded("u@x.com")
