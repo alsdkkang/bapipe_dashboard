@@ -327,9 +327,9 @@ def _stepper(step):
         mark = "✓" if i < step else str(i + 1)
         cols[i].markdown(
             f"<div style='text-align:center'><span class='avatar' "
-            f"style='background:{'#111' if i <= step else '#c2ccd8'}'>{mark}</span>"
+            f"style='background:{'#111' if i <= step else '#cccccc'}'>{mark}</span>"
             f"<div style='font-size:13px;font-weight:600;color:"
-            f"{'#111' if i == step else '#6c7889'}'>{lab}</div></div>",
+            f"{'#111' if i == step else '#777777'}'>{lab}</div></div>",
             unsafe_allow_html=True)
 
 
