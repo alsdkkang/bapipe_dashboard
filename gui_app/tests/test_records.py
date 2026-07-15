@@ -63,3 +63,24 @@ def test_get_and_delete(records):
 def test_users_are_isolated(records):
     records.add_record("u1@x.com", _rec())
     assert records.list_records("u2@x.com") == []
+
+
+def test_assemble_record_is_json_serialisable(records):
+    import json as _json
+    import pandas as pd
+    per = pd.DataFrame(
+        {"distance": [27000.0], "time_in_zone": [12.0], "duration_s": [650.0]},
+        index=pd.Index(["m1"], name="id"),
+    )
+    summ = pd.DataFrame({"distance": [27000.0]}, index=pd.Index(["saline"], name="group"))
+    rec = records.assemble_record(
+        name="run", animals=["m1"],
+        config={"box_shape": (400, 300)}, per_animal=per, group_summary=summ,
+    )
+    # must round-trip through JSON without error
+    _json.dumps(rec)
+    assert rec["name"] == "run"
+    assert rec["animals"] == ["m1"]
+    assert rec["config"]["box_shape"] == [400, 300]
+    assert rec["results"]["per_animal"][0]["id"] == "m1"
+    assert rec["results"]["group_summary"][0]["group"] == "saline"
