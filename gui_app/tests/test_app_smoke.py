@@ -56,3 +56,20 @@ def test_app_phase_without_data_redirects():
     at.session_state["phase"] = "app"
     at.run()
     assert not at.exception
+
+
+def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+    import records as recmod
+    import importlib
+    importlib.reload(recmod)
+    recmod.add_record("tester@example.com", {
+        "name": "seeded run", "animals": ["m1"],
+        "config": {"box_shape": [400, 300]},
+        "results": {"per_animal": [{"id": "m1", "distance": 1.0}], "group_summary": []},
+    })
+    at = _fresh_apptest()
+    at.session_state["phase"] = "records"
+    at.run()
+    assert not at.exception
+    assert any("seeded run" in (m.value or "") for m in at.markdown)

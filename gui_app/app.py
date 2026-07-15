@@ -778,6 +778,57 @@ def render_results():
         )
 
 
+def render_records():
+    render_top_bar("Dashboard", "Your saved analyses")
+    a1, a2, _ = st.columns([1, 1, 4])
+    if a1.button("＋ New analysis", type="primary"):
+        st.session_state["wizard_step"] = 0
+        for k in ("video_set", "config", "metadata"):
+            st.session_state.pop(k, None)
+        go("wizard")
+    if a2.button("Guide"):
+        go("guide")
+
+    recs = records.list_records(current_user_key())
+    if not recs:
+        st.info("No saved records yet — press New analysis to begin.")
+        return
+
+    opened = st.session_state.get("open_record")
+    if opened:
+        rec = records.get_record(current_user_key(), opened)
+        if rec:
+            if st.button("← Back to records"):
+                st.session_state.pop("open_record"); st.rerun()
+            st.subheader(rec["name"])
+            st.caption(f"Saved {rec['created']} · {len(rec['animals'])} animals")
+            per = pd.DataFrame(rec["results"]["per_animal"])
+            st.markdown("**Per-animal results**")
+            st.dataframe(per, use_container_width=True)
+            st.download_button("Download CSV", per.to_csv(index=False).encode(),
+                               f"{rec['id']}_per_animal.csv", "text/csv")
+            import json as _json
+            st.download_button("Download JSON", _json.dumps(rec, indent=2).encode(),
+                               f"{rec['id']}.json", "application/json")
+            if rec["results"]["group_summary"]:
+                st.markdown("**Group summary**")
+                st.dataframe(pd.DataFrame(rec["results"]["group_summary"]),
+                             use_container_width=True)
+        return
+
+    for rec in recs:
+        with st.container(border=True):
+            c1, c2, c3, c4 = st.columns([4, 2, 1, 1])
+            c1.markdown(f"**{rec['name']}**")
+            c1.caption(f"Saved {rec['created']}")
+            c2.caption(f"{len(rec['animals'])} animals · "
+                       f"box {rec['config'].get('box_shape')}")
+            if c3.button("Open", key=f"open_{rec['id']}"):
+                st.session_state["open_record"] = rec["id"]; st.rerun()
+            if c4.button("Delete", key=f"del_{rec['id']}"):
+                records.delete_record(current_user_key(), rec["id"]); st.rerun()
+
+
 # ---- phase router ----
 user_key = current_user_key()
 phase = routing.resolve_phase(records.is_onboarded(user_key),
@@ -796,9 +847,7 @@ elif phase == "loading":
     render_loading()
     st.stop()
 elif phase == "records":
-    st.info("My Records dashboard — implemented in Task 9.")
-    if st.button("Start →"):
-        go("wizard")
+    render_records()
     st.stop()
 elif phase == "app":
     if "video_set" not in st.session_state:
