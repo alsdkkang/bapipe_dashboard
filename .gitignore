@@ -139,3 +139,4 @@ gui_app/.venv/
 gui_app/users.json
 .DS_Store
 **/.DS_Store
+gui_app/records/
