@@ -102,3 +102,43 @@ def delete_record(email, rid) -> None:
     data = _load(email)
     data["records"] = [r for r in data["records"] if r.get("id") != rid]
     _save(email, data)
+
+
+def _jsonable(value):
+    """Coerce numpy/tuple values into plain JSON types."""
+    import numpy as np
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, (np.floating,)):
+        return float(value)
+    return value
+
+
+def assemble_record(name, animals, config, per_animal, group_summary):
+    """Build a JSON-serialisable snapshot from computed result frames.
+
+    `per_animal` is indexed by animal id; `group_summary` (optional) is indexed
+    by group. Only numbers + metadata are stored — no raw video/pose data.
+    """
+    pa = per_animal.reset_index()
+    pa = pa.rename(columns={pa.columns[0]: "id"})
+    per_rows = [{k: _jsonable(v) for k, v in row.items()}
+                for row in pa.to_dict(orient="records")]
+    summ_rows = []
+    if group_summary is not None and len(group_summary):
+        gs = group_summary.reset_index()
+        gs = gs.rename(columns={gs.columns[0]: "group"})
+        gs.columns = ["_".join(map(str, c)).strip("_") if isinstance(c, tuple) else str(c)
+                      for c in gs.columns]
+        summ_rows = [{k: _jsonable(v) for k, v in row.items()}
+                     for row in gs.to_dict(orient="records")]
+    return {
+        "name": name,
+        "animals": [str(a) for a in animals],
+        "config": _jsonable(config),
+        "results": {"per_animal": per_rows, "group_summary": summ_rows},
+    }
