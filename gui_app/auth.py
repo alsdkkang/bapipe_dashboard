@@ -166,19 +166,22 @@ def _logout():
 # --------------------------------------------------------------------------- #
 # Login page
 # --------------------------------------------------------------------------- #
-def _render_logo(logo_path):
+def _render_logo(logo_path, width=110):
     if logo_path and Path(logo_path).exists():
         if str(logo_path).endswith(".svg"):
-            st.image(Path(logo_path).read_text(), width=110)
+            st.image(Path(logo_path).read_text(), width=width)
         else:
-            st.image(str(logo_path), width=110)
+            st.image(str(logo_path), width=width)
 
 
 def _login_page(logo_path):
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
-        _render_logo(logo_path)
-        st.title("bapipe dashboard")
+        st.markdown(
+            "<div style='text-align:center;font-size:1.4rem;font-weight:700;"
+            "color:var(--ink);letter-spacing:-0.02em;line-height:1.2;"
+            "margin:0.2rem 0 1rem'>Animal Behaviour Analysis by Abizaid Lab</div>",
+            unsafe_allow_html=True)
         mode = st.session_state.get("auth_mode", "login")
 
         if mode == "register":
@@ -302,7 +305,7 @@ def is_admin(email) -> bool:
 
 
 def header_account():
-    """Signed-in avatar + logout, rendered in the main area (top bar). No-op
+    """Signed-in avatar + name chip, rendered in the main area (top bar). No-op
     unless auth is enabled and a user is signed in."""
     if not auth_enabled():
         return
@@ -311,11 +314,11 @@ def header_account():
         return
     who = name or email
     initial = (who[:1] or "?").upper()
-    c1, c2 = st.columns([4, 1], vertical_alignment="center")
-    c1.markdown(
+    cc1, cc2 = st.columns([5, 1], vertical_alignment="center")
+    cc1.markdown(
         f"<div style='text-align:right'>"
         f"<span class='avatar' style='display:inline-flex;vertical-align:middle;margin-right:6px'>{html.escape(initial)}</span>"
         f"<span style='color:var(--muted)'>{html.escape(who)}</span></div>",
         unsafe_allow_html=True,
     )
-    c2.button("Log out", on_click=_logout, use_container_width=True, key="hdr_logout")
+    cc2.button("⎋", on_click=_logout, key="hdr_logout", help="Log out")
