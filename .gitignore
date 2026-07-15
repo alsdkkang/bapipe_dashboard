@@ -130,3 +130,12 @@ dmypy.json
 
 # vscode
 .vscode
+# GUI auth secrets & access list (do not commit)
+.streamlit/secrets.toml
+gui_app/access.json
+gui_app/.venv/
+
+# Never commit credentials / OS cruft
+gui_app/users.json
+.DS_Store
+**/.DS_Store
