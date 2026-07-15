@@ -546,8 +546,6 @@ def render_distance():
     st.subheader("Total distance travelled")
     sel = animal_selector("dist_animals")
     group_col = group_selector("dist_group")
-    bar_color = st.color_picker("Bar colour", "#4C72B0", key="dist_color",
-                                help="Colour of the bars in the chart.")
 
     with loading("loading"):
         distances = pd.Series(
@@ -561,11 +559,16 @@ def render_distance():
     with col_fig:
         fig, ax = plt.subplots(figsize=(8, 5))
         if group_col:
-            sns.barplot(data=data, x=group_col, y="distance", ax=ax, color=bar_color)
+            greys = theme.group_greys(data[group_col].nunique())
+            palette = [g[0] for g in greys]
+            bars = sns.barplot(data=data, x=group_col, y="distance", ax=ax, palette=palette)
+            for patch, (_, hatch) in zip(bars.patches, greys):
+                if hatch:
+                    patch.set_hatch(hatch)
             ax.set_xlabel("Group")
             plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
         else:
-            sns.barplot(data=data.reset_index(), x="index", y="distance", ax=ax, color=bar_color)
+            sns.barplot(data=data.reset_index(), x="index", y="distance", ax=ax, color="#444444")
             ax.set_xlabel("Animal")
         ax.set_ylabel("Distance travelled")
         ax.set_title("Locomotion")
@@ -628,9 +631,9 @@ def render_heatmaps():
                     fig, ax = plt.subplots()
                     ax.imshow(group_background(ids))
                     if z is not None:
-                        cs = ax.contourf(z, cmap="Reds", alpha=intensity, levels=levels)
+                        cs = ax.contourf(z, cmap="Greys", alpha=intensity, levels=levels)
                         cbar = fig.colorbar(cs, ax=ax, fraction=0.046, pad=0.04)
-                        cbar.set_label("Occupancy density\n(darker red = more time spent)")
+                        cbar.set_label("Occupancy density\n(darker = more time spent)")
                     ax.axis("off")
                     st.pyplot(fig)
                     fig_export(fig, f"heatmap_{name}".replace("/", "-"), f"heat_{i}")
@@ -641,8 +644,6 @@ def render_zone():
     st.subheader("Time spent in a centred zone")
     sel = animal_selector("zone_animals")
     group_col = group_selector("zone_group")
-    bar_color = st.color_picker("Bar colour", "#4C72B0", key="zone_color",
-                                help="Colour of the bars in the chart.")
 
     # The displayed reference frame and each video's mouse_df live in the SAME
     # coordinate space (both had the same config transform applied). So centre the
@@ -688,10 +689,15 @@ def render_zone():
         st.markdown("**Time in zone [s]**")
         fig, ax = plt.subplots(figsize=(7, 5))
         if group_col:
-            sns.barplot(data=data, x=group_col, y="time_in_zone", ax=ax, color=bar_color)
+            greys = theme.group_greys(data[group_col].nunique())
+            palette = [g[0] for g in greys]
+            bars = sns.barplot(data=data, x=group_col, y="time_in_zone", ax=ax, palette=palette)
+            for patch, (_, hatch) in zip(bars.patches, greys):
+                if hatch:
+                    patch.set_hatch(hatch)
             plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
         else:
-            sns.barplot(data=data.reset_index(), x="index", y="time_in_zone", ax=ax, color=bar_color)
+            sns.barplot(data=data.reset_index(), x="index", y="time_in_zone", ax=ax, color="#444444")
         ax.set_ylabel("Time in zone [s]")
         st.pyplot(fig)
         fig_export(fig, "time_in_zone", "zone_bar")
