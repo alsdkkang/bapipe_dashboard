@@ -670,9 +670,10 @@ def render_zone():
         fig_zone, ax = plt.subplots()
         ax.imshow(ref)
         disp = analysis.square_zone(cx, cy, half)  # separate patch for drawing
-        disp.set(facecolor="none", edgecolor="red", linewidth=2, alpha=1.0)
+        disp.set(facecolor="none", edgecolor="#111111", linewidth=2, alpha=1.0)
         ax.add_patch(disp)
-        ax.plot(cx, cy, "r+", markersize=10)  # mark the zone centre
+        ax.plot(cx, cy, "+", color="#111111", markersize=10,
+                markeredgewidth=2)  # mark the zone centre
         ax.set_xlim(0, fw)
         ax.set_ylim(fh, 0)
         ax.axis("off")
