@@ -40,3 +40,12 @@ def test_returning_user_sees_records_phase():
     at.session_state["phase"] = "records"
     at.run()
     assert not at.exception
+
+
+def test_wizard_renders_step_zero():
+    at = _fresh_apptest()
+    at.session_state["phase"] = "wizard"
+    at.run()
+    assert not at.exception
+    texts = [m.value for m in at.markdown] + [m.value for m in at.subheader]
+    assert any("experiment" in (t or "").lower() for t in texts)
