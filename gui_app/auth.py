@@ -315,7 +315,7 @@ def header_account():
     c1.markdown(
         f"<div style='text-align:right'>"
         f"<span class='avatar' style='display:inline-flex;vertical-align:middle;margin-right:6px'>{html.escape(initial)}</span>"
-        f"<span style='color:#6c7889'>{html.escape(who)}</span></div>",
+        f"<span style='color:var(--muted)'>{html.escape(who)}</span></div>",
         unsafe_allow_html=True,
     )
     c2.button("Log out", on_click=_logout, use_container_width=True, key="hdr_logout")
