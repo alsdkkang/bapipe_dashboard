@@ -84,3 +84,17 @@ def test_assemble_record_is_json_serialisable(records):
     assert rec["config"]["box_shape"] == [400, 300]
     assert rec["results"]["per_animal"][0]["id"] == "m1"
     assert rec["results"]["group_summary"][0]["group"] == "saline"
+
+
+def test_autosave_snapshot_has_expected_fields(records):
+    import pandas as pd
+    per = pd.DataFrame(
+        {"distance": [1.0, 2.0], "time_in_zone": [3.0, 4.0], "duration_s": [5.0, 6.0]},
+        index=pd.Index(["m1", "m2"], name="id"),
+    )
+    rec = records.assemble_record("run", ["m1", "m2"],
+                                  {"box_shape": [400, 300]}, per, None)
+    stored = records.add_record("u@x.com", rec)
+    got = records.get_record("u@x.com", stored["id"])
+    assert len(got["results"]["per_animal"]) == 2
+    assert {"id", "distance", "time_in_zone", "duration_s"} <= set(got["results"]["per_animal"][0])

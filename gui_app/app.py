@@ -127,6 +127,14 @@ def metric_by_group(video_set, metric_series, metadata, group_col):
     return df
 
 
+def group_like_columns(md):
+    """Only categorical "group" columns (treatment/sex/cohort/…) are useful for
+    grouping and for merging into results — drop the numeric hand-scored metrics
+    and boolean flags."""
+    return [c for c in md.columns
+            if not (pd.api.types.is_float_dtype(md[c]) or pd.api.types.is_bool_dtype(md[c]))]
+
+
 # --------------------------------------------------------------------------- #
 # Data folder resolution
 # --------------------------------------------------------------------------- #
@@ -220,51 +228,99 @@ def do_load(selected_ids):
     )
 
 
-# --------------------------------------------------------------------------- #
-# Main area — top header bar + card home (MGS-style)
-# --------------------------------------------------------------------------- #
-SECTIONS = [
-    ("Overview", "Experiment summary and the original-vs-aligned video montage."),
-    ("Distance", "Total distance travelled, grouped by treatment."),
-    ("Heatmaps", "Occupancy density heatmaps, per group."),
-    ("Time in zone", "Time spent in an adjustable centred zone, per group."),
-    ("Validation video", "Annotated clip with the tracked keypoints drawn on the mouse."),
-    ("Results", "Per-animal metrics + group summary; export tidy CSVs."),
-]
+def autosave_current_load(sel_ids):
+    """After a successful load, compute per-animal metrics + group summary and
+    save a results-only snapshot to the current user's private records. Only
+    numbers + metadata are saved — never video/frame data."""
+    vs = st.session_state["video_set"]
+    cfg = st.session_state["config"]
+    md = st.session_state.get("metadata")
+    present = set(vs.index)
+    ids_present = [i for i in sel_ids if i in present]
+    vids = [vs[vs.index.index(i)] for i in ids_present]
+    ref = reference_frame(vs[0]); fh, fw = ref.shape[:2]
+    half = max(10, min(int(min(fw, fh) // 2), 50))
+    zone = analysis.square_zone(fw / 2, fh / 2, half)
+    per = pd.DataFrame(
+        {"distance": [analysis.distance_travelled(v) for v in vids],
+         "time_in_zone": [analysis.time_in_zone(v, zone) for v in vids],
+         "duration_s": [round(v.duration, 2) for v in vids]},
+        index=pd.Index(ids_present, name="id"),
+    )
+    gcols = group_like_columns(md) if md is not None else []
+    summary = None
+    if gcols:
+        joined = per.join(md[gcols])
+        summary = joined.groupby(gcols[0])[["distance", "time_in_zone", "duration_s"]].mean()
+    cfg_summary = {"box_shape": list(cfg.box_shape),
+                   "use_box_reference": cfg.use_box_reference,
+                   "remove_lens_distortion": cfg.remove_lens_distortion}
+    name = f"{len(sel_ids)} animals · {pd.Timestamp.now():%Y-%m-%d %H:%M}"
+    rec = records.assemble_record(name, sel_ids, cfg_summary, per, summary)
+    records.add_record(current_user_key(), rec)
 
 
-def render_header():
-    email, name = auth.current_user()
-    who = name or email
-    h1, h2, h3 = st.columns([1, 6, 3], vertical_alignment="center")
-    with h1:
-        if LOGO_PATH and LOGO_PATH.suffix == ".svg":
-            st.image(LOGO_PATH.read_text(), width=46)
-        elif LOGO_PATH:
-            st.image(str(LOGO_PATH), width=46)
-    h2.markdown("**Dashboard**")
-    if who:
-        initial = (who[:1] or "?").upper()
-        h3.markdown(
-            "<div style='text-align:right'>"
-            "<span style='display:inline-block;width:26px;height:26px;line-height:26px;"
-            f"border-radius:50%;background:#111;color:#fff;text-align:center;margin-right:6px'>{initial}</span>"
-            f"{who}</div>", unsafe_allow_html=True)
-    st.divider()
+def group_selector(key):
+    if not group_cols:
+        st.caption("No metadata loaded — showing all animals together.")
+        return None
+    default = "injected_with" if "injected_with" in group_cols else group_cols[0]
+    return st.selectbox("Group by", group_cols, index=group_cols.index(default), key=key,
+                        help="Metadata column used to split animals into groups for comparison "
+                             "(e.g. treatment, sex, cohort).")
 
 
-def render_home():
-    st.title("Behavioural Analysis Dashboard")
-    st.write("Pick a section to explore your loaded experiment, or use the analysis "
-             "settings above to change what's loaded.")
-    cols = st.columns(3)
-    for i, (name, desc) in enumerate(SECTIONS):
-        with cols[i % 3].container(border=True):
-            st.markdown(f"#### {name}")
-            st.caption(desc)
-            if st.button("Open →", key=f"home_{name}", use_container_width=True):
-                st.session_state["view"] = name
-                st.rerun()
+def ensure_loaded(ids):
+    """Lazily load any selected animals that weren't loaded yet."""
+    vs = st.session_state["video_set"]
+    missing = [i for i in ids if i not in set(vs.index)]
+    if not missing:
+        return
+    mdf = st.session_state["manifest_df"]
+    rows = mdf[mdf["id"].astype(str).isin(missing)].reset_index(drop=True)
+    if len(rows):
+        with st.spinner(f"Loading {len(rows)} more video(s)…"):
+            extra = bapipe.VideoSet.load(
+                rows, st.session_state["config"],
+                root_dir=st.session_state["root_dir"], use_multiprocessing=False,
+            )
+        vs.videos.extend(extra.videos)
+
+
+def animal_selector(key):
+    """Per-tab select / deselect of animals. Options include the WHOLE manifest;
+    picking an animal that wasn't loaded yet loads it on demand."""
+    with st.expander("Animals (select / deselect)", expanded=False):
+        c1, c2 = st.columns(2)
+        if c1.button("All", key=f"{key}_all"):
+            st.session_state[key] = list(all_ids)
+        if c2.button("None", key=f"{key}_none"):
+            st.session_state[key] = []
+        st.session_state.setdefault(key, list(loaded_ids))
+        sel = st.multiselect("Included animals", all_ids, key=key)
+    if not sel:
+        st.warning("No animals selected — using the initially loaded set.")
+        sel = list(loaded_ids)
+    ensure_loaded(sel)
+    return sel
+
+
+def videos_for(ids):
+    vs = st.session_state["video_set"]
+    return [vs[vs.index.index(i)] for i in ids]
+
+
+def fig_export(fig, basename, key):
+    """Format picker + download button for a matplotlib figure (png/pdf/jpeg)."""
+    mimes = {"png": "image/png", "pdf": "application/pdf", "jpeg": "image/jpeg"}
+    c1, c2 = st.columns([1, 2], vertical_alignment="bottom")
+    fmt = c1.selectbox("Export format", list(mimes), key=f"{key}_fmt",
+                       help="File type for the downloaded figure. PNG/JPEG = image, PDF = vector.")
+    buf = io.BytesIO()
+    fig.savefig(buf, format="jpg" if fmt == "jpeg" else fmt,
+                bbox_inches="tight", dpi=200, facecolor="white")
+    c2.download_button(f"Download figure (.{fmt})", buf.getvalue(),
+                       file_name=f"{basename}.{fmt}", mime=mimes[fmt], key=f"{key}_dl")
 
 
 # --------------------------------------------------------------------------- #
@@ -412,213 +468,42 @@ def render_wizard():
             go("loading")
 
 
-# ---- phase router ----
-user_key = current_user_key()
-phase = routing.resolve_phase(records.is_onboarded(user_key),
-                              st.session_state.get("phase"))
-
-if phase == "welcome":
-    render_welcome()
-    st.stop()
-elif phase == "guide":
-    guide.render_guide(on_back=lambda: go("records"))
-    st.stop()
-elif phase == "wizard":
-    render_wizard()
-    st.stop()
-elif phase == "loading":
-    st.info("Loading — implemented in Task 8.")
-    st.stop()
-elif phase == "records":
-    st.info("My Records dashboard — implemented in Task 9.")
-    if st.button("Start →"):
-        go("wizard")
-    st.stop()
-# phase == "app": analysis views (wired in Task 8) — fall through to the
-# existing setup screen + view dispatch below.
-
-
-render_header()
-
-# ---- Setup screen: choose data, then pick animals ------------------------- #
-_loaded = "video_set" in st.session_state
-
-# Data inputs live in an expander that is ALWAYS rendered (so its widget state is never
-# garbage-collected on dashboard runs). Expanded on the setup screen, collapsed once loaded.
-with st.expander("① Data folder & metadata", expanded=not _loaded):
-    st.caption(
-        "Point the app at the folder with your **manifest CSV** (`bapipe_datafiles.csv` / "
-        "`datafiles.csv`), videos and DeepLabCut `.h5` files. Optionally add a **metadata CSV** "
-        "(`id` + group columns like treatment / sex / cohort) to compare groups."
-    )
-    st.text_input(
-        "Data folder", key="data_folder_input",
-        help="Folder containing the manifest CSV plus the videos/, mouse_labels/, "
-             "landmark_labels/ it references.")
-    if data_status:
-        (st.success if data_status[0] == "success" else st.error)(data_status[1])
-    dc1, dc2 = st.columns(2)
-    dc1.text_input(
-        "Metadata CSV (optional, for grouping)", key="meta_input",
-        help="Per-animal metadata joined by id, e.g. treatment / sex / cohort.")
-    dc2.text_input(
-        "Metadata join column", key="join_input",
-        help="Column in the metadata CSV that matches the manifest id (usually 'id').")
-
-# ---- Setup screen: pick which animals to load ----------------------------- #
-if not _loaded:
-    if manifest_df is None:
-        st.stop()  # wait for a valid data folder before showing the animal picker
-
-    st.markdown("### ② Select animals to load")
-    ids = manifest_df["id"].astype(str).tolist()
-
-    picker_key = f"picker::{manifest_path}"
-    if st.session_state.get("picker_key") != picker_key:
-        st.session_state["picker_key"] = picker_key
-        st.session_state["picker_df"] = pd.DataFrame(
-            {"id": ids, "load": [i < 8 for i in range(len(ids))]}
-        )
-
-    # Select all / Clear rewrite the source frame (these buttons rerun, but the
-    # rerun happens before the editor renders, so the page stays put).
-    c1, c2, _ = st.columns([1, 1, 6])
-    if c1.button("Select all"):
-        st.session_state["picker_df"]["load"] = True
-    if c2.button("Clear"):
-        st.session_state["picker_df"]["load"] = False
-
-    # The editor lives inside a form: ticking checkboxes no longer triggers a
-    # rerun (which would scroll the page back to the top). Nothing is submitted
-    # until you press "Load experiment".
-    with st.form("animal_picker", border=False):
-        edited = st.data_editor(
-            st.session_state["picker_df"],
-            hide_index=True,
-            disabled=["id"],
-            width="stretch",
-            height=360,
-            column_config={
-                "id": st.column_config.TextColumn("Animal"),
-                "load": st.column_config.CheckboxColumn("Load", default=False),
-            },
-        )
-        submitted = st.form_submit_button("Load experiment", type="primary")
-
-    st.caption(f"{len(ids)} animals available. Tick the ones to load, then press Load experiment.")
-
-    if submitted:
-        st.session_state["picker_df"] = edited
-        selected_ids = edited.loc[edited["load"], "id"].tolist()
-        if not selected_ids:
-            st.warning("Select at least one animal to load.")
-        else:
+def render_loading():
+    sel_ids = st.session_state.get("pending_load_ids", [])
+    st.markdown("<div style='height:12vh'></div>", unsafe_allow_html=True)
+    _, mid, _ = st.columns([1, 2, 1])
+    with mid:
+        with st.spinner(f"Loading {len(sel_ids)} videos…"):
             try:
-                do_load(selected_ids)
-                st.rerun()
+                do_load(sel_ids)
+                autosave_current_load(sel_ids)
             except Exception as e:
-                st.session_state.pop("video_set", None)
                 st.error(f"Failed to load: {e}")
-                st.exception(e)
-    st.stop()
-
-video_set = st.session_state["video_set"]
-config = st.session_state["config"]
-metadata = st.session_state["metadata"]
-box_shape = config.box_shape
-
-# Only categorical "group" columns (treatment/sex/cohort/…) are useful for grouping and
-# for merging into results — drop the numeric hand-scored metrics and boolean flags.
-def group_like_columns(md):
-    return [c for c in md.columns
-            if not (pd.api.types.is_float_dtype(md[c]) or pd.api.types.is_bool_dtype(md[c]))]
+                if st.button("← Back to setup"):
+                    go("wizard")
+                st.stop()
+    st.session_state["view"] = "Overview"
+    go("app")
 
 
-group_cols = group_like_columns(metadata) if metadata is not None else []
+def render_top_bar(title, sub):
+    c1, c2 = st.columns([2, 1], vertical_alignment="center")
+    c1.markdown(f"<div class='topbar'><div><div class='title'>{title}</div>"
+                f"<div class='sub'>{sub}</div></div></div>", unsafe_allow_html=True)
+    with c2:
+        b1, b2 = st.columns(2)
+        if b1.button("Guide", key="app_guide", use_container_width=True):
+            go("guide")
+        if b2.button("Change data", key="app_change", use_container_width=True):
+            for k in ("video_set", "config", "metadata"):
+                st.session_state.pop(k, None)
+            st.session_state["wizard_step"] = 0
+            go("wizard")
+    auth.header_account()
 
-# All animals available in the manifest (not just the initially loaded ones).
-manifest_all = st.session_state.get("manifest_df")
-all_ids = list(manifest_all["id"].astype(str)) if manifest_all is not None else list(video_set.index)
-loaded_ids = list(video_set.index)
-
-
-def group_selector(key):
-    if not group_cols:
-        st.caption("No metadata loaded — showing all animals together.")
-        return None
-    default = "injected_with" if "injected_with" in group_cols else group_cols[0]
-    return st.selectbox("Group by", group_cols, index=group_cols.index(default), key=key,
-                        help="Metadata column used to split animals into groups for comparison "
-                             "(e.g. treatment, sex, cohort).")
-
-
-def ensure_loaded(ids):
-    """Lazily load any selected animals that weren't loaded yet."""
-    vs = st.session_state["video_set"]
-    missing = [i for i in ids if i not in set(vs.index)]
-    if not missing:
-        return
-    mdf = st.session_state["manifest_df"]
-    rows = mdf[mdf["id"].astype(str).isin(missing)].reset_index(drop=True)
-    if len(rows):
-        with st.spinner(f"Loading {len(rows)} more video(s)…"):
-            extra = bapipe.VideoSet.load(
-                rows, st.session_state["config"],
-                root_dir=st.session_state["root_dir"], use_multiprocessing=False,
-            )
-        vs.videos.extend(extra.videos)
-
-
-def animal_selector(key):
-    """Per-tab select / deselect of animals. Options include the WHOLE manifest;
-    picking an animal that wasn't loaded yet loads it on demand."""
-    with st.expander("Animals (select / deselect)", expanded=False):
-        c1, c2 = st.columns(2)
-        if c1.button("All", key=f"{key}_all"):
-            st.session_state[key] = list(all_ids)
-        if c2.button("None", key=f"{key}_none"):
-            st.session_state[key] = []
-        st.session_state.setdefault(key, list(loaded_ids))
-        sel = st.multiselect("Included animals", all_ids, key=key)
-    if not sel:
-        st.warning("No animals selected — using the initially loaded set.")
-        sel = list(loaded_ids)
-    ensure_loaded(sel)
-    return sel
-
-
-def videos_for(ids):
-    vs = st.session_state["video_set"]
-    return [vs[vs.index.index(i)] for i in ids]
-
-
-def fig_export(fig, basename, key):
-    """Format picker + download button for a matplotlib figure (png/pdf/jpeg)."""
-    mimes = {"png": "image/png", "pdf": "application/pdf", "jpeg": "image/jpeg"}
-    c1, c2 = st.columns([1, 2], vertical_alignment="bottom")
-    fmt = c1.selectbox("Export format", list(mimes), key=f"{key}_fmt",
-                       help="File type for the downloaded figure. PNG/JPEG = image, PDF = vector.")
-    buf = io.BytesIO()
-    fig.savefig(buf, format="jpg" if fmt == "jpeg" else fmt,
-                bbox_inches="tight", dpi=200, facecolor="white")
-    c2.download_button(f"Download figure (.{fmt})", buf.getvalue(),
-                       file_name=f"{basename}.{fmt}", mime=mimes[fmt], key=f"{key}_dl")
-
-
-# Navigation is card-based (Home) instead of tabs: only the selected section's code runs,
-# which also keeps interactions snappy.
-view = st.session_state.setdefault("view", "Home")
-if view != "Home":
-    if st.button("← Home"):
-        st.session_state["view"] = "Home"
-        st.rerun()
-
-# ---- Home (section cards) ------------------------------------------------- #
-if view == "Home":
-    render_home()
 
 # ---- Overview ------------------------------------------------------------- #
-elif view == "Overview":
+def render_overview():
     st.subheader("Experiment summary")
     sel = animal_selector("ov_animals")
     vids = videos_for(sel)
@@ -655,8 +540,9 @@ elif view == "Overview":
                 aligned = bapipe.create_video_grid(vids)
                 st.image(np.clip(aligned, 0, 1))
 
+
 # ---- Distance ------------------------------------------------------------- #
-elif view == "Distance":
+def render_distance():
     st.subheader("Total distance travelled")
     sel = animal_selector("dist_animals")
     group_col = group_selector("dist_group")
@@ -691,8 +577,9 @@ elif view == "Distance":
         st.download_button("Download CSV", data.to_csv().encode(), "distances.csv",
                            "text/csv", key="dist_csv")
 
+
 # ---- Heatmaps ------------------------------------------------------------- #
-elif view == "Heatmaps":
+def render_heatmaps():
     st.subheader("Occupancy heatmaps")
     sel = animal_selector("heat_animals")
     group_col = group_selector("heat_group")
@@ -748,8 +635,9 @@ elif view == "Heatmaps":
                     st.pyplot(fig)
                     fig_export(fig, f"heatmap_{name}".replace("/", "-"), f"heat_{i}")
 
+
 # ---- Time in zone --------------------------------------------------------- #
-elif view == "Time in zone":
+def render_zone():
     st.subheader("Time spent in a centred zone")
     sel = animal_selector("zone_animals")
     group_col = group_selector("zone_group")
@@ -811,8 +699,9 @@ elif view == "Time in zone":
     st.download_button("Download CSV", data.to_csv().encode(), "time_in_zone.csv",
                        "text/csv", key="zone_csv")
 
-# ---- Validation video ----------------------------------------------------- #
-elif view == "Validation video":
+
+# ---- Validation video ------------------------------------------------------ #
+def render_validation():
     st.subheader("Annotated validation clip")
     sel = animal_selector("vid_animals")
     animal = st.selectbox("Animal", sel, help="Which animal's video to annotate.")
@@ -833,8 +722,9 @@ elif view == "Validation video":
                 st.error(f"Failed to render clip: {e}")
                 st.exception(e)
 
-# ---- Results -------------------------------------------------------------- #
-elif view == "Results":
+
+# ---- Results ---------------------------------------------------------------- #
+def render_results():
     st.subheader("Results — computed metrics by group")
     st.caption(
         "Per-animal metrics computed live from the pose data, merged with your metadata "
@@ -886,3 +776,56 @@ elif view == "Results":
             "No metadata groups loaded — showing the per-animal table only. Add a metadata "
             "CSV with id + a group column (treatment / sex / cohort) to summarise by group."
         )
+
+
+# ---- phase router ----
+user_key = current_user_key()
+phase = routing.resolve_phase(records.is_onboarded(user_key),
+                              st.session_state.get("phase"))
+
+if phase == "welcome":
+    render_welcome()
+    st.stop()
+elif phase == "guide":
+    guide.render_guide(on_back=lambda: go("records"))
+    st.stop()
+elif phase == "wizard":
+    render_wizard()
+    st.stop()
+elif phase == "loading":
+    render_loading()
+    st.stop()
+elif phase == "records":
+    st.info("My Records dashboard — implemented in Task 9.")
+    if st.button("Start →"):
+        go("wizard")
+    st.stop()
+elif phase == "app":
+    if "video_set" not in st.session_state:
+        go("wizard")
+    render_top_bar("Analysis", "Explore your loaded experiment")
+    video_set = st.session_state["video_set"]
+    config = st.session_state["config"]
+    metadata = st.session_state["metadata"]
+    box_shape = config.box_shape
+    group_cols = group_like_columns(metadata) if metadata is not None else []
+    # All animals available in the manifest (not just the initially loaded ones).
+    manifest_all = st.session_state.get("manifest_df")
+    all_ids = list(manifest_all["id"].astype(str)) if manifest_all is not None else list(video_set.index)
+    loaded_ids = list(video_set.index)
+
+    tabs = st.tabs(["Overview", "Distance", "Heatmaps", "Time in zone",
+                    "Validation video", "Results"])
+    with tabs[0]:
+        render_overview()
+    with tabs[1]:
+        render_distance()
+    with tabs[2]:
+        render_heatmaps()
+    with tabs[3]:
+        render_zone()
+    with tabs[4]:
+        render_validation()
+    with tabs[5]:
+        render_results()
+    st.stop()
