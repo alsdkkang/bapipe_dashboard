@@ -49,3 +49,10 @@ def test_wizard_renders_step_zero():
     assert not at.exception
     texts = [m.value for m in at.markdown] + [m.value for m in at.subheader]
     assert any("experiment" in (t or "").lower() for t in texts)
+
+
+def test_app_phase_without_data_redirects():
+    at = _fresh_apptest()
+    at.session_state["phase"] = "app"
+    at.run()
+    assert not at.exception
