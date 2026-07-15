@@ -29,9 +29,9 @@ CSS = """
 :root{
   --font-sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --ink:#111111; --body:#37414e; --muted:#6c7889; --faint:#98a4b4;
-  --canvas:#fafbfc; --card:#ffffff; --sunken:#f4f6f9;
-  --border:#dce2ea; --border-strong:#c2ccd8;
+  --ink:#111111; --body:#333333; --muted:#777777; --faint:#a0a0a0;
+  --canvas:#fafafa; --card:#ffffff; --sunken:#f4f4f4;
+  --border:#e0e0e0; --border-strong:#cccccc;
   --radius:10px;
 }
 html, body, [class*="css"]{ font-family:var(--font-sans); color:var(--body); }
@@ -50,7 +50,7 @@ h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
 .mono{ font-family:var(--font-mono); }
 .eyebrow{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
 .bw-card{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
-  box-shadow:0 1px 2px rgba(16,24,32,.06); padding:16px; margin-bottom:16px; }
+  box-shadow:0 1px 2px rgba(0,0,0,.06); padding:16px; margin-bottom:16px; }
 .bw-card h4{ margin:0 0 8px 0; font-size:15px; }
 .stat-tile{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; }
 .stat-tile .label{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
