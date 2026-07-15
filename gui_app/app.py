@@ -255,8 +255,8 @@ def autosave_current_load(sel_ids):
     cfg_summary = {"box_shape": list(cfg.box_shape),
                    "use_box_reference": cfg.use_box_reference,
                    "remove_lens_distortion": cfg.remove_lens_distortion}
-    name = f"{len(sel_ids)} animals · {pd.Timestamp.now():%Y-%m-%d %H:%M}"
-    rec = records.assemble_record(name, sel_ids, cfg_summary, per, summary)
+    name = f"{len(ids_present)} animals · {pd.Timestamp.now():%Y-%m-%d %H:%M}"
+    rec = records.assemble_record(name, ids_present, cfg_summary, per, summary)
     records.add_record(current_user_key(), rec)
 
 
@@ -476,12 +476,15 @@ def render_loading():
         with st.spinner(f"Loading {len(sel_ids)} videos…"):
             try:
                 do_load(sel_ids)
-                autosave_current_load(sel_ids)
             except Exception as e:
                 st.error(f"Failed to load: {e}")
                 if st.button("← Back to setup"):
                     go("wizard")
                 st.stop()
+            try:
+                autosave_current_load(sel_ids)
+            except Exception:
+                st.warning("Couldn't save this analysis to your records.")
     st.session_state["view"] = "Overview"
     go("app")
 
