@@ -7,6 +7,8 @@ Run with:
     streamlit run gui_app/app.py
 """
 import io
+import platform
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -19,11 +21,17 @@ for p in (str(HERE), str(SRC)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
+
+try:
+    from streamlit_image_coordinates import streamlit_image_coordinates as _click_image
+except Exception:  # component not installed → arena-corner picker disabled
+    _click_image = None
 
 import bapipe
 import analysis
@@ -119,6 +127,16 @@ def load_metadata(path, join_col):
     return df
 
 
+def _metadata_columns(path):
+    """Column names of a metadata CSV (header only), or [] if unreadable."""
+    if not path or not Path(path).exists():
+        return []
+    try:
+        return list(pd.read_csv(path, nrows=0).columns)
+    except Exception:
+        return []
+
+
 def metric_by_group(video_set, metric_series, metadata, group_col):
     """Join a per-animal metric with metadata for grouped plotting."""
     df = metric_series.to_frame()
@@ -135,49 +153,377 @@ def group_like_columns(md):
             if not (pd.api.types.is_float_dtype(md[c]) or pd.api.types.is_bool_dtype(md[c]))]
 
 
+def _native_pick(mode):
+    """Open a native macOS folder/file chooser and return a POSIX path (or None).
+    LOCAL runs only — on a deployed/headless server there is no desktop to show a
+    dialog on, so this returns None and the user types the path instead.
+    mode: 'folder' | 'csv'."""
+    if platform.system() != "Darwin":
+        return None
+    if mode == "folder":
+        script = 'POSIX path of (choose folder with prompt "Select data folder")'
+    elif mode == "json":
+        script = ('POSIX path of (choose file with prompt "Select calibration JSON" '
+                  'of type {"json", "public.json"})')
+    else:
+        script = ('POSIX path of (choose file with prompt "Select CSV file" '
+                  'of type {"csv", "public.comma-separated-values-text"})')
+    try:
+        out = subprocess.run(["osascript", "-e", script],
+                             capture_output=True, text=True, timeout=180)
+        return out.stdout.strip() or None
+    except Exception:
+        return None
+
+
+def _pick_data_folder():
+    p = _native_pick("folder")
+    if p:
+        st.session_state["data_folder_input"] = p.rstrip("/")
+
+
+def _pick_meta_csv():
+    p = _native_pick("csv")
+    if p:
+        st.session_state["w_meta"] = st.session_state["data_meta_path"] = p
+
+
+def _pick_video_dir():
+    p = _native_pick("folder")
+    if p:
+        st.session_state["w_video"] = st.session_state["data_video_dir"] = p.rstrip("/")
+
+
+def _pick_dlc_dir():
+    p = _native_pick("folder")
+    if p:
+        st.session_state["w_dlc"] = st.session_state["data_dlc_dir"] = p.rstrip("/")
+
+
+def _pick_landmark_dir():
+    p = _native_pick("folder")
+    if p:
+        st.session_state["w_land"] = st.session_state["data_landmark_dir"] = p.rstrip("/")
+
+
+def _pick_calib_file():
+    p = _native_pick("json")
+    if p:
+        st.session_state["w_calib"] = st.session_state["data_calib_path"] = p
+
+
+_VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".m4v"}
+
+
+def _dlc_animal_id(h5_name):
+    """Animal id encoded in a DeepLabCut output filename (`<id>DLC_...h5`)."""
+    return h5_name.split("DLC")[0] if "DLC" in h5_name else Path(h5_name).stem
+
+
+def _find_landmark(land_dir, vid):
+    """A landmark .h5 for this video id in land_dir (accepts a few name styles)."""
+    if not land_dir:
+        return None
+    for cand in (land_dir / f"{vid}_landmarks.h5", land_dir / f"{vid}.h5"):
+        if cand.exists():
+            return cand
+    return next((p for p in land_dir.glob(f"{vid}*.h5")), None)
+
+
+def build_manifest_from_folders(video_dir, dlc_dir, landmark_dir=""):
+    """Pair each video with its DeepLabCut .h5 by name and build an in-memory
+    manifest with ABSOLUTE paths (so bapipe's root_dir join is a no-op). If a
+    landmark folder is given (or <video_dir>/landmark_labels exists), each video's
+    arena-corner .h5 is wired in so alignment uses those instead of drawn corners."""
+    vdir, ddir = Path(video_dir), Path(dlc_dir)
+    videos = sorted(p for p in vdir.iterdir()
+                    if p.is_file() and p.suffix.lower() in _VIDEO_EXTS)
+    h5s = [p for p in ddir.iterdir() if p.is_file() and p.suffix.lower() == ".h5"]
+    dlc_by_id = {}
+    for h in h5s:
+        dlc_by_id.setdefault(_dlc_animal_id(h.name), h)
+    land_dir = (Path(landmark_dir) if landmark_dir and Path(landmark_dir).is_dir()
+                else vdir / "landmark_labels")
+    if not land_dir.is_dir():
+        land_dir = None
+    rows, unmatched = [], []
+    for v in videos:
+        vid = v.stem
+        h = dlc_by_id.get(vid) or next(
+            (hh for hh in h5s if hh.name.startswith(vid)), None)
+        if h is None:
+            unmatched.append(vid)
+            continue
+        row = {"id": vid, "video": str(v), "mouse_labels": str(h)}
+        lm = _find_landmark(land_dir, vid)
+        if lm:
+            row["landmark_labels"] = str(lm)
+        rows.append(row)
+    if not rows:
+        return None, ("error", "No videos in that folder matched a DLC .h5 file.")
+    df = pd.DataFrame(rows)
+    msg = f"{len(df)} video(s) matched to DLC files"
+    if unmatched:
+        msg += f" · {len(unmatched)} without a match (skipped)"
+    # Guard against picking the landmark_labels folder (or any non-pose h5) by
+    # mistake — otherwise the "pose" is just arena corners and every analysis
+    # comes out empty. Definitive check: peek at the matched file's bodyparts.
+    matched = [Path(r["mouse_labels"]) for r in rows]
+    try:
+        bps = {c[1] for c in pd.read_hdf(matched[0], stop=1).columns}
+    except Exception:
+        bps = set()
+    if bps and bps <= {"top_left", "top_right", "bottom_right", "bottom_left"}:
+        return None, ("error", "That folder holds arena LANDMARK files (corners), not "
+                      "mouse pose. Choose the DeepLabCut keypoints folder instead — the "
+                      "one with the pose .h5 files (e.g. 'mouse_labels', names like "
+                      "f1DLC_resnet50_…). 'landmark_labels' is the arena corners.")
+    if not any("DLC" in m.name for m in matched):
+        return df, ("warn", f"{len(df)} matched, but these .h5 files don't look like "
+                    "DeepLabCut pose output (no 'DLC' in their names). Make sure this is "
+                    "the mouse keypoints folder, not the arena landmarks.")
+    return df, ("success", msg)
+
+
+# --------------------------------------------------------------------------- #
+# Arena corners → landmark generation (for users without landmark .h5 files)
+# --------------------------------------------------------------------------- #
+_ARENA_CORNERS = ["top_left", "top_right", "bottom_right", "bottom_left"]
+_ARENA_LABELS = ["top-left", "top-right", "bottom-right", "bottom-left"]
+
+
+def _video_path_for(root_dir, mdf, animal_id):
+    row = mdf[mdf["id"].astype(str) == str(animal_id)].iloc[0]
+    return Path(root_dir) / str(row["video"])
+
+
+def _read_raw_frame(video_path, idx=900):
+    """Return a representative RGB frame (uint8) from a video, or None."""
+    try:
+        cap = cv2.VideoCapture(str(video_path))
+        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, min(idx, max(0, n - 1)))
+        ok, frame = cap.read()
+        if not ok:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ok, frame = cap.read()
+        cap.release()
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) if ok else None
+    except Exception:
+        return None
+
+
+def _draw_corners(frame, corners):
+    img = frame.copy()
+    for i, (x, y) in enumerate(corners):
+        cv2.circle(img, (int(x), int(y)), 8, (17, 17, 17), -1)
+        cv2.circle(img, (int(x), int(y)), 8, (255, 255, 255), 2)
+        cv2.putText(img, str(i + 1), (int(x) + 11, int(y) - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (17, 17, 17), 2, cv2.LINE_AA)
+    return img
+
+
+def _landmarks_present(root_dir, mdf, sel_ids):
+    """True only if every selected animal has an existing landmark_labels .h5."""
+    if mdf is None or "landmark_labels" not in mdf.columns:
+        return False
+    rows = mdf[mdf["id"].astype(str).isin([str(i) for i in sel_ids])]
+    if rows.empty:
+        return False
+    for _, r in rows.iterrows():
+        lm = r.get("landmark_labels")
+        if not isinstance(lm, str) or not lm or not (Path(root_dir) / lm).exists():
+            return False
+    return True
+
+
+def _box_from_corners(corners):
+    tl, tr, br, bl = [np.array(c, float) for c in corners]
+    w = (np.linalg.norm(tr - tl) + np.linalg.norm(br - bl)) / 2
+    h = (np.linalg.norm(bl - tl) + np.linalg.norm(br - tr)) / 2
+    return max(1, int(round(w))), max(1, int(round(h)))
+
+
+def _corners_key(corners):
+    return tuple(tuple(int(v) for v in c) for c in corners)
+
+
+def _detect_corners_by_color(frame, min_area=120):
+    """Auto-detect the 4 arena corners from the coloured (teal/yellow) corner
+    tape. Returns [TL, TR, BR, BL] in pixel coords, or None if it can't find a
+    marker near every corner (e.g. a video whose corners aren't taped)."""
+    if frame is None:
+        return None
+    h, w = frame.shape[:2]
+    # frames from _read_raw_frame are RGB (for display), so convert from RGB.
+    hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+    H, S, V = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    teal = (H >= 76) & (H <= 100) & (S > 85) & (V > 55)
+    yellow = (H >= 14) & (H <= 33) & (S > 85) & (V > 55)
+    mask = (teal | yellow).astype(np.uint8) * 255
+    # The food port sits near the centre — ignore the middle so it isn't picked.
+    mask[int(h * 0.28):int(h * 0.72), int(w * 0.28):int(w * 0.72)] = 0
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((11, 11), np.uint8))
+    cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    blobs = []
+    for c in cnts:
+        a = cv2.contourArea(c)
+        if a < min_area:
+            continue
+        m = cv2.moments(c)
+        blobs.append((a, m["m10"] / m["m00"], m["m01"] / m["m00"]))
+    if len(blobs) < 4:
+        return None
+    img_corners = [(0, 0), (w, 0), (w, h), (0, h)]  # TL, TR, BR, BL
+    groups = {0: [], 1: [], 2: [], 3: []}
+    for a, cx, cy in blobs:
+        i = int(np.argmin([(cx - ix) ** 2 + (cy - iy) ** 2 for ix, iy in img_corners]))
+        groups[i].append((a, cx, cy))
+    out = []
+    for i in range(4):
+        if not groups[i]:
+            return None
+        tot = sum(a for a, _, _ in groups[i])
+        out.append((sum(a * x for a, x, _ in groups[i]) / tot,
+                    sum(a * y for a, _, y in groups[i]) / tot))
+    tl, tr, br, bl = out
+    if not (tl[0] < tr[0] and bl[0] < br[0] and tl[1] < bl[1] and tr[1] < br[1]):
+        return None
+    return out
+
+
+def _frame_for_id(root_dir, mdf, aid):
+    """Cached representative RGB frame for one animal's video."""
+    fp = _video_path_for(root_dir, mdf, aid)
+    key = f"_frame::{fp}"
+    if key not in st.session_state:
+        st.session_state[key] = _read_raw_frame(fp)
+    return st.session_state[key]
+
+
+def _make_landmark_h5(corners, n_frames, out_path):
+    """Write a DeepLabCut-format landmark .h5 with constant arena corners."""
+    cols = pd.MultiIndex.from_product(
+        [["manual"], _ARENA_CORNERS, ["x", "y", "likelihood"]],
+        names=["scorer", "bodyparts", "coords"])
+    data = np.zeros((n_frames, len(_ARENA_CORNERS) * 3), dtype=float)
+    for i, (cx, cy) in enumerate(corners):
+        data[:, i * 3 + 0] = cx
+        data[:, i * 3 + 1] = cy
+        data[:, i * 3 + 2] = 1.0
+    pd.DataFrame(data, columns=cols).to_hdf(out_path, key="df_with_missing", mode="w")
+
+
+def _generate_landmarks(root_dir, mdf, sel_ids, corners_by_id):
+    """Create per-animal landmark .h5 files (under <video_dir>/landmark_labels)
+    from EACH video's own arena corners, and wire their absolute paths into the
+    manifest. Video / mouse_labels paths are already absolute."""
+    land_dir = Path(root_dir) / "landmark_labels"
+    land_dir.mkdir(parents=True, exist_ok=True)
+    sel = {str(i) for i in sel_ids}
+    if "landmark_labels" not in mdf.columns:
+        mdf["landmark_labels"] = ""
+    for _, r in mdf.iterrows():
+        rid = str(r["id"])
+        if rid not in sel or rid not in corners_by_id:
+            continue
+        n = None
+        ml = r.get("mouse_labels")
+        try:
+            if isinstance(ml, str) and Path(ml).exists():
+                n = len(pd.read_hdf(ml))
+        except Exception:
+            n = None
+        if not n:
+            try:
+                cap = cv2.VideoCapture(str(r["video"]))
+                n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                cap.release()
+            except Exception:
+                n = 1000
+        out = land_dir / f"{rid}_landmarks.h5"
+        _make_landmark_h5(corners_by_id[rid], max(1, int(n)), out)
+        mdf.loc[mdf["id"].astype(str) == rid, "landmark_labels"] = str(out)
+
+
+def _autodetect_all_corners(root_dir, mdf, sel_ids):
+    """Run colour-based corner detection on every selected video, storing results
+    in session_state['corners_by_id']. Returns (n_detected, [failed ids])."""
+    cbid = st.session_state.setdefault("corners_by_id", {})
+    failed = []
+    for aid in sel_ids:
+        c = _detect_corners_by_color(_frame_for_id(root_dir, mdf, aid))
+        if c:
+            cbid[aid] = c
+        elif aid not in cbid:
+            failed.append(aid)
+    return len(cbid), failed
+
+
+def _fix_corner_ui(root_dir, mdf, aid):
+    """Click the 4 corners for ONE video; store into corners_by_id[aid]."""
+    if _click_image is None:
+        st.error("Corner picker needs the `streamlit-image-coordinates` package.")
+        return
+    frame = _frame_for_id(root_dir, mdf, aid)
+    if frame is None:
+        st.error(f"Could not read a frame for {aid}.")
+        return
+    cbid = st.session_state.setdefault("corners_by_id", {})
+    pending = st.session_state.setdefault("_fix_pending", {})
+    corners = pending.get(aid, [])
+    fh, fw = frame.shape[:2]
+    disp_w = min(int(fw), 720)
+    c1, c2 = st.columns([4, 1], vertical_alignment="top")
+    with c1:
+        val = _click_image(_draw_corners(frame, corners), width=disp_w, key=f"fix_click_{aid}")
+    with c2:
+        st.caption(f"Video **{aid}**")
+        if st.button("Reset", key=f"fix_reset_{aid}"):
+            pending[aid] = []
+            st.session_state.pop(f"_fix_last_{aid}", None)
+            st.rerun()
+    if len(corners) < 4:
+        st.info(f"Click the **{_ARENA_LABELS[len(corners)]}** corner ({len(corners) + 1} of 4).")
+        if val and val.get("width") and val.get("height"):
+            cur = (val["x"], val["y"])
+            if st.session_state.get(f"_fix_last_{aid}") != cur:
+                st.session_state[f"_fix_last_{aid}"] = cur
+                corners.append((val["x"] * fw / val["width"], val["y"] * fh / val["height"]))
+                pending[aid] = corners
+                if len(corners) == 4:
+                    cbid[aid] = corners
+                st.rerun()
+
+
 # --------------------------------------------------------------------------- #
 # Data folder resolution
 # --------------------------------------------------------------------------- #
-# Data settings live on the main setup screen (widgets rendered there). Resolve their
-# values here every run; setdefault keeps the widget keys alive so they persist even on
-# dashboard runs where the widgets aren't rendered.
-st.session_state.setdefault("data_folder_input", str(DEFAULT_FOLDER) if DEFAULT_FOLDER.is_dir() else "")
-data_folder = st.session_state["data_folder_input"]
+# The data selection lives in CANONICAL (non-widget) session keys so it survives
+# step changes and reruns. Streamlit can drop a widget-keyed value on a run where
+# that widget isn't rendered (e.g. the folder inputs on step 0 are gone once you're
+# on step 1/2), which previously blanked the manifest and stranded the wizard.
+video_dir = st.session_state.get("data_video_dir", "")
+dlc_dir = st.session_state.get("data_dlc_dir", "")
+landmark_dir = st.session_state.get("data_landmark_dir", "")
+calib_path = st.session_state.get("data_calib_path", "")
+meta_path = st.session_state.get("data_meta_path", "")
+join_col = st.session_state.get("data_join_col") or "id"
 
 manifest_path, root_dir, manifest_df, data_status = None, "", None, None
-folder = Path(data_folder) if data_folder else None
-if folder and folder.is_dir():
-    root_dir = str(folder)
-    manifest_path = find_manifest(folder)
-    if manifest_path is not None:
-        manifest_df = pd.read_csv(manifest_path)
-        if "id" not in manifest_df.columns:
-            manifest_df = manifest_df.rename(columns={manifest_df.columns[0]: "id"})
-        data_status = ("success", f"{manifest_path.name} · {len(manifest_df)} animals")
+if video_dir and Path(video_dir).is_dir():
+    root_dir = video_dir
+    if dlc_dir and Path(dlc_dir).is_dir():
+        manifest_df, data_status = build_manifest_from_folders(video_dir, dlc_dir, landmark_dir)
     else:
-        data_status = ("error", "No bapipe_datafiles.csv / datafiles.csv in this folder.")
-elif data_folder:
-    data_status = ("error", "Folder not found.")
+        data_status = ("error", "Now choose the DLC keypoints (.h5) folder.")
+elif video_dir:
+    data_status = ("error", "Video folder not found.")
 
-_meta_default = (str(folder / "experiment-data.csv")
-                 if folder and folder.is_dir() and (folder / "experiment-data.csv").exists() else "")
-st.session_state.setdefault("meta_input", _meta_default)
-meta_path = st.session_state["meta_input"]
-st.session_state.setdefault("join_input", "id")
-join_col = st.session_state["join_input"] or "id"
-
-# Is a camera-calibration file actually available for these videos?
-cal_present = False
-if manifest_df is not None:
-    try:
-        cal_rel = str(manifest_df.iloc[0].get("camera_calibrations", "camera_calibrations.json"))
-        cal_present = (Path(root_dir) / cal_rel).exists()
-    except Exception:
-        cal_present = False
-
-# Analysis settings now live in the Start wizard (Task 7). Until then, resolve
+# Analysis settings live in the Start wizard. Resolve
 # them from session defaults so do_load() keeps working.
-_defaults = dict(box_w=400, box_h=300, use_box_reference=True, remove_lens=cal_present,
+_defaults = dict(box_w=400, box_h=300, use_box_reference=True, remove_lens=False,
                  pcutoff=0.6, outlier_sigmas=3.0, mouse_in_box_tolerance=10,
                  use_pairwise=True, use_bodypart=True, use_centroid=True,
                  use_likelihood=True, use_min_bodyparts=True, min_bodyparts=3)
@@ -196,6 +542,11 @@ use_min_bodyparts = st.session_state["use_min_bodyparts"]; min_bodyparts = st.se
 def do_load(selected_ids):
     """Load only the selected animals into session_state."""
     df = manifest_df[manifest_df["id"].astype(str).isin(selected_ids)].reset_index(drop=True)
+    # Lens-distortion correction is applied automatically when a camera calibration
+    # JSON is provided; every video points at that one calibration file. Without it,
+    # correction is off and a placeholder keeps bapipe happy (it's never opened).
+    _use_lens = bool(calib_path and Path(calib_path).exists())
+    df["camera_calibrations"] = calib_path if _use_lens else "camera_calibrations.json"
     config = bapipe.AnalysisConfig(
         pcutoff=pcutoff,
         outlier_sigmas=outlier_sigmas,
@@ -206,7 +557,7 @@ def do_load(selected_ids):
         outlier_use_likelhiood=use_likelihood,  # (sic) matches source field
         outlier_use_minimum_bodyparts=use_min_bodyparts,
         mouse_in_box_tolerance=int(mouse_in_box_tolerance),
-        remove_lens_distortion=remove_lens,
+        remove_lens_distortion=_use_lens,
         use_box_reference=use_box_reference,
         box_shape=(int(box_w), int(box_h)),
     )
@@ -391,64 +742,201 @@ def _stepper(step):
 
 def render_wizard():
     step = st.session_state.setdefault("wizard_step", 0)
+    # If we somehow reached a later step without a valid data selection (e.g. the
+    # app restarted and cleared the session), fall back to the data-picker step so
+    # the user is never stranded with no way to proceed.
+    if step > 0 and manifest_df is None:
+        step = st.session_state["wizard_step"] = 0
+        st.session_state["_wizard_bounced"] = True
     if st.button("← Back to records", key="wiz_home"):
         go("records")
     _stepper(step)
     st.divider()
 
     if step == 0:  # choose data
+        if st.session_state.pop("_wizard_bounced", False):
+            st.info("Please choose your Video and DLC folders to continue.")
         st.subheader("Where is your experiment?")
-        st.text_input("Data folder", key="data_folder_input",
-                      help="Folder with the manifest CSV plus its videos and tracking files.")
+        # Widget keys are seeded from the canonical values and mirrored back after,
+        # so the selection survives when these widgets aren't rendered on later steps.
+        st.session_state.setdefault("w_video", video_dir)
+        st.session_state.setdefault("w_dlc", dlc_dir)
+        st.session_state.setdefault("w_land", landmark_dir)
+        st.session_state.setdefault("w_calib", calib_path)
+        st.session_state.setdefault("w_meta", meta_path)
+        v1, v2 = st.columns([4, 1], vertical_alignment="bottom")
+        v1.text_input("Video folder", key="w_video",
+                      help="Folder containing your .mp4 videos (one per animal).")
+        v2.button("Browse…", key="browse_video", on_click=_pick_video_dir,
+                  use_container_width=True, help="Open a folder chooser (local use only).")
+        h1, h2 = st.columns([4, 1], vertical_alignment="bottom")
+        h1.text_input("DLC keypoints folder (.h5)", key="w_dlc",
+                      help="Folder with the DeepLabCut .h5 output for each video "
+                           "(matched to videos by filename).")
+        h2.button("Browse…", key="browse_dlc", on_click=_pick_dlc_dir,
+                  use_container_width=True, help="Open a folder chooser (local use only).")
+        l1, l2 = st.columns([4, 1], vertical_alignment="bottom")
+        l1.text_input("Landmark folder (.h5, optional)", key="w_land",
+                      help="Folder with per-video arena-corner .h5 files "
+                           "(<id>_landmarks.h5). If given, alignment uses these — more "
+                           "accurate than auto-detecting corners. Leave blank to set "
+                           "corners in the next steps.")
+        l2.button("Browse…", key="browse_land", on_click=_pick_landmark_dir,
+                  use_container_width=True, help="Open a folder chooser (local use only).")
+        cb1, cb2 = st.columns([4, 1], vertical_alignment="bottom")
+        cb1.text_input("Camera calibration (.json)", key="w_calib",
+                       help="Camera calibration JSON (camera_matrix + distortion_"
+                            "coefficients). When given, lens-distortion correction is "
+                            "applied automatically to every video. Leave blank to skip.")
+        cb2.button("Browse…", key="browse_calib", on_click=_pick_calib_file,
+                   use_container_width=True, help="Open a file chooser (local use only).")
+        st.session_state["data_video_dir"] = st.session_state["w_video"]
+        st.session_state["data_dlc_dir"] = st.session_state["w_dlc"]
+        st.session_state["data_landmark_dir"] = st.session_state["w_land"]
+        st.session_state["data_calib_path"] = st.session_state["w_calib"]
+        _cp = st.session_state["w_calib"]
+        if _cp:
+            _cok = Path(_cp).exists()
+            st.caption(("✓ Lens-distortion correction will be applied." if _cok
+                        else "⚠ Calibration file not found — lens correction will be skipped."))
         if data_status:
-            (st.success if data_status[0] == "success" else st.error)(data_status[1])
-        st.text_input("Metadata CSV (optional)", key="meta_input")
-        st.text_input("Metadata join column", key="join_input")
-        if st.button("Next: select animals →", type="primary", disabled=manifest_df is None):
+            _bg = {"success": "#e7f6ec", "warn": "#fff4e0"}.get(data_status[0], "#fdecec")
+            _fg = {"success": "#1c6a2e", "warn": "#8a5a00"}.get(data_status[0], "#a11b1b")
+            st.markdown(
+                f"<span style='display:inline-block;background:{_bg};color:{_fg};"
+                f"padding:6px 12px;border-radius:6px;font-size:13px'>{data_status[1]}</span>",
+                unsafe_allow_html=True)
+        m1, m2 = st.columns([4, 1], vertical_alignment="bottom")
+        m1.text_input("Metadata CSV (optional)", key="w_meta",
+                      help="One row per animal with group columns (treatment, sex, "
+                           "cohort, …) so results can be compared across groups.")
+        m2.button("Browse…", key="browse_meta", on_click=_pick_meta_csv,
+                  use_container_width=True, help="Open a file chooser (local use only).")
+        st.session_state["data_meta_path"] = st.session_state["w_meta"]
+        # Join column: once a metadata CSV is chosen, offer its columns as a dropdown.
+        _meta_cols = _metadata_columns(st.session_state["w_meta"])
+        if _meta_cols:
+            if st.session_state.get("w_join") not in _meta_cols:
+                st.session_state["w_join"] = ("id" if "id" in _meta_cols else _meta_cols[0])
+            st.selectbox(
+                "Metadata join column", _meta_cols, key="w_join",
+                help="Column in your metadata CSV that holds the animal id — its "
+                     "values must match the video filenames (e.g. f1, f2).")
+            st.session_state["data_join_col"] = st.session_state["w_join"]
+        elif st.session_state["w_meta"]:
+            st.caption("Couldn't read columns from that metadata file.")
+        _, _nr = st.columns([5, 2])
+        if _nr.button("Next: select animals →", type="primary", disabled=manifest_df is None,
+                      use_container_width=True):
             st.session_state["wizard_step"] = 1; st.rerun()
 
     elif step == 1:  # select animals
         st.subheader("Which animals to load?")
         ids = manifest_df["id"].astype(str).tolist()
+
+        # Optional metadata → show each animal's group columns next to its id.
+        _md = None
+        if meta_path and Path(meta_path).exists():
+            try:
+                _md = load_metadata(meta_path, join_col)
+            except Exception:
+                _md = None
+        _gcols = group_like_columns(_md) if _md is not None else []
+
+        def _meta_label(aid):
+            if _md is not None and _gcols and aid in _md.index:
+                parts = [f"{c}={_md.loc[aid, c]}" for c in _gcols
+                         if pd.notna(_md.loc[aid, c])]
+                if parts:
+                    return f"{aid} — " + " · ".join(parts)
+            return aid
+
         st.session_state.setdefault("wizard_sel",
                                     {i: (k < 8) for k, i in enumerate(ids)})
-        cA, cB = st.columns(2)
-        if cA.button("Select all"):
+        cA, cB, _ = st.columns([1, 1, 6], gap="small")
+        if cA.button("Select all", use_container_width=True):
             st.session_state["wizard_sel"] = {i: True for i in ids}
-        if cB.button("Clear"):
+        if cB.button("Clear", use_container_width=True):
             st.session_state["wizard_sel"] = {i: False for i in ids}
+        if meta_path and _md is None:
+            st.caption("Metadata CSV couldn't be read — showing animal ids only.")
+        elif _md is not None and not any(i in _md.index for i in ids):
+            st.caption("No metadata rows matched these animals — check the join column.")
         with st.container(height=340):
             for i in ids:
                 st.session_state["wizard_sel"][i] = st.checkbox(
-                    i, value=st.session_state["wizard_sel"].get(i, False), key=f"wsel_{i}")
+                    _meta_label(i), value=st.session_state["wizard_sel"].get(i, False),
+                    key=f"wsel_{i}")
         n = sum(1 for v in st.session_state["wizard_sel"].values() if v)
         st.caption(f"{n} of {len(ids)} selected")
-        b1, b2 = st.columns(2)
-        if b1.button("← Back"):
+        b1, _, b2 = st.columns([2, 6, 2])
+        if b1.button("← Back", use_container_width=True):
             st.session_state["wizard_step"] = 0; st.rerun()
-        if b2.button("Next: configure →", type="primary", disabled=n == 0):
+        if b2.button("Next: configure →", type="primary", disabled=n == 0,
+                     use_container_width=True):
             st.session_state["wizard_step"] = 2; st.rerun()
 
     else:  # configure
         st.subheader("Analysis settings")
-        if manifest_df is not None:
-            _autobox_key = str(manifest_path)
-            if st.session_state.get("_wizard_autobox_for") != _autobox_key:
-                st.session_state["_wizard_autobox_for"] = _autobox_key
+        sel_ids = [i for i, v in st.session_state.get("wizard_sel", {}).items() if v]
+
+        # Reset per-video corners + box size if the data folder changed under us.
+        if st.session_state.get("_arena_folder") != root_dir:
+            st.session_state["_arena_folder"] = root_dir
+            for _k in ("corners_by_id", "_fix_pending", "_corner_box_set",
+                       "_wizard_autobox_for"):
+                st.session_state.pop(_k, None)
+            st.session_state["box_w"], st.session_state["box_h"] = 400, 300
+
+        have_landmarks = _landmarks_present(root_dir, manifest_df, sel_ids)
+        cbid = st.session_state.setdefault("corners_by_id", {})
+        done_ids = [i for i in sel_ids if i in cbid]
+        missing = [i for i in sel_ids if i not in cbid]
+
+        # --- Resolve box size BEFORE the number_input widgets render (Streamlit
+        # forbids mutating a widget-bound key after its widget exists this run).
+        # The box is the output canvas all videos warp to: use the median of the
+        # detected per-video corner boxes. ---
+        if have_landmarks:
+            if manifest_df is not None and st.session_state.get("_wizard_autobox_for") != str(manifest_path):
+                st.session_state["_wizard_autobox_for"] = str(manifest_path)
                 _autodetect_box(silent=True)
-        # The re-detect button must run (and update box_w/box_h in session_state)
-        # BEFORE the number_input widgets below are instantiated — Streamlit
-        # forbids mutating a widget-bound session_state key after that widget
-        # has been created in the same run.
-        if st.button("Re-detect from arena corners", disabled=manifest_df is None):
+        elif done_ids:
+            _bkey = tuple(sorted(done_ids))
+            if st.session_state.get("_corner_box_set") != _bkey:
+                st.session_state["_corner_box_set"] = _bkey
+                _ws = [_box_from_corners(cbid[i]) for i in done_ids]
+                st.session_state["box_w"] = int(np.median([w for w, _ in _ws]))
+                st.session_state["box_h"] = int(np.median([h for _, h in _ws]))
+
+        # --- Per-video arena corners (only when no landmark files exist) ---
+        if not have_landmarks and manifest_df is not None and sel_ids:
+            st.markdown("**Arena corners**")
+            st.caption("Corners are found automatically from the coloured corner tape "
+                       "in each video. Videos whose corners aren't taped are set by clicking.")
+            ac1, ac2 = st.columns([1, 3], vertical_alignment="center")
+            if ac1.button("Auto-detect corners", use_container_width=True):
+                with st.spinner("Detecting corners in each video…"):
+                    _autodetect_all_corners(root_dir, manifest_df, sel_ids)
+                st.rerun()
+            ac2.markdown(
+                f"<div style='padding-top:6px'>Corners set for <b>{len(done_ids)}</b> / "
+                f"{len(sel_ids)} videos"
+                + (f" · <b>{len(missing)}</b> still need manual corners" if missing else "")
+                + "</div>", unsafe_allow_html=True)
+            if missing:
+                st.markdown("**Set corners for a video without tape:**")
+                fix_id = st.selectbox("Video", missing, key="_fix_which")
+                _fix_corner_ui(root_dir, manifest_df, fix_id)
+            elif done_ids:
+                st.success(f"All {len(done_ids)} selected videos have corners.")
+
+        if have_landmarks and st.button("Re-detect from arena corners"):
             _autodetect_box(silent=False)
         c1, c2 = st.columns(2)
         c1.number_input("Arena width", min_value=1, key="box_w")
         c2.number_input("Arena height", min_value=1, key="box_h")
         st.checkbox("Align videos to box", key="use_box_reference")
-        st.checkbox("Remove lens distortion", key="remove_lens")
-        if st.session_state["remove_lens"] and not cal_present:
-            st.warning("No camera_calibrations.json found — loading will fail with this on.")
         with st.expander("Advanced: outlier filtering"):
             st.slider("Tracking confidence cutoff (pcutoff)", 0.0, 1.0, key="pcutoff", step=0.05)
             st.slider("Outlier sensitivity (σ)", 1.0, 6.0, key="outlier_sigmas", step=0.5)
@@ -459,11 +947,15 @@ def render_wizard():
             st.checkbox("Filter by centroid velocity", key="use_centroid")
             st.checkbox("Filter by likelihood", key="use_likelihood")
             st.checkbox("Filter by minimum bodyparts", key="use_min_bodyparts")
-        d1, d2 = st.columns(2)
-        if d1.button("← Back"):
+        load_ready = bool(sel_ids) and (have_landmarks or (bool(done_ids) and not missing))
+        if not load_ready and sel_ids and not have_landmarks:
+            st.caption("Set arena corners for every selected video to enable loading "
+                       "(press Auto-detect, then fix any that remain).")
+        d1, _, d2 = st.columns([2, 6, 2])
+        if d1.button("← Back", use_container_width=True):
             st.session_state["wizard_step"] = 1; st.rerun()
-        sel_ids = [i for i, v in st.session_state.get("wizard_sel", {}).items() if v]
-        if d2.button(f"Load experiment ({len(sel_ids)})", type="primary", disabled=not sel_ids):
+        if d2.button(f"Load experiment ({len(sel_ids)})", type="primary",
+                     disabled=not load_ready, use_container_width=True):
             st.session_state["pending_load_ids"] = sel_ids
             go("loading")
 
@@ -475,6 +967,9 @@ def render_loading():
     with mid:
         with st.spinner(f"Loading {len(sel_ids)} videos…"):
             try:
+                _cbid = st.session_state.get("corners_by_id", {})
+                if _cbid and not _landmarks_present(root_dir, manifest_df, sel_ids):
+                    _generate_landmarks(root_dir, manifest_df, sel_ids, _cbid)
                 do_load(sel_ids)
             except Exception as e:
                 st.error(f"Failed to load: {e}")
@@ -489,15 +984,40 @@ def render_loading():
     go("app")
 
 
-def render_top_bar(title, sub):
+def render_top_bar(title, sub, logo=None):
     c1, c2 = st.columns([2, 1], vertical_alignment="center")
-    c1.markdown(f"<div class='topbar'><div><div class='title'>{title}</div>"
-                f"<div class='sub'>{sub}</div></div></div>", unsafe_allow_html=True)
+    with c1:
+        if logo and Path(logo).exists():
+            lg1, lg2 = st.columns([1, 5], vertical_alignment="center")
+            with lg1:
+                if str(logo).endswith(".svg"):
+                    st.image(Path(logo).read_text(), width=72)
+                else:
+                    st.image(str(logo), width=72)
+            lg2.markdown(f"<div class='topbar'><div><div class='sub'>{sub}</div>"
+                         f"</div></div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='topbar'><div><div class='title'>{title}</div>"
+                        f"<div class='sub'>{sub}</div></div></div>", unsafe_allow_html=True)
     with c2:
         auth.header_account()
 
 
 # ---- Overview ------------------------------------------------------------- #
+_BAR_PALETTES = ["Grayscale", "tab10", "Set2", "Set1", "Dark2", "Paired", "colorblind"]
+_HEAT_CMAPS = ["Greys", "Blues", "Reds", "Greens", "Oranges", "Purples",
+               "viridis", "magma", "plasma", "inferno", "coolwarm", "hot"]
+
+
+def _bar_palette(name, n):
+    """Return (colors, hatches) for n groups. 'Grayscale' keeps the B&W look
+    (grey ramp + hatch); any other name uses that seaborn/matplotlib palette."""
+    if name == "Grayscale":
+        greys = theme.group_greys(n)
+        return [g[0] for g in greys], [g[1] for g in greys]
+    return sns.color_palette(name, n).as_hex(), [""] * n
+
+
 def render_overview():
     st.subheader("Experiment summary")
     sel = animal_selector("ov_animals")
@@ -519,21 +1039,30 @@ def render_overview():
 
     st.subheader("Original vs. aligned montage")
     st.caption("Reads one frame per selected video — may take a moment.")
+    _sig = (tuple(sel), _cfg_sig())
     if st.button("Build montage",
                  help="Render a grid of one frame per selected video, before vs. after alignment."):
         with loading("loading"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**Original**")
+            try:
                 orig = bapipe.create_video_grid(
                     vids,
-                    override_config={"use_box_reference": False, "remove_lens_distortion": False},
-                )
-                st.image(np.clip(orig, 0, 1))
-            with col2:
-                st.markdown("**Aligned**")
+                    override_config={"use_box_reference": False, "remove_lens_distortion": False})
                 aligned = bapipe.create_video_grid(vids)
-                st.image(np.clip(aligned, 0, 1))
+                st.session_state["_montage"] = {
+                    "sig": _sig, "orig": np.clip(orig, 0, 1), "aligned": np.clip(aligned, 0, 1)}
+            except Exception as e:
+                st.session_state["_montage"] = {"sig": _sig, "error": str(e)}
+    # Persisted so it stays visible after other interactions rerun the app.
+    _m = st.session_state.get("_montage")
+    if _m and _m.get("sig") == _sig:
+        if _m.get("error"):
+            st.error(f"Couldn't build the montage: {_m['error']}")
+        else:
+            col1, col2 = st.columns(2)
+            col1.markdown("**Original**")
+            col1.image(_m["orig"], use_container_width=True)
+            col2.markdown("**Aligned**")
+            col2.image(_m["aligned"], use_container_width=True)
 
 
 # ---- Distance ------------------------------------------------------------- #
@@ -541,6 +1070,8 @@ def render_distance():
     st.subheader("Total distance travelled")
     sel = animal_selector("dist_animals")
     group_col = group_selector("dist_group")
+    pal_name = st.selectbox("Colour palette", _BAR_PALETTES, key="dist_palette",
+                            help="Bar colours by group. 'Grayscale' keeps the black & white look.")
 
     with loading("loading"):
         distances = pd.Series(
@@ -554,10 +1085,9 @@ def render_distance():
     with col_fig:
         fig, ax = plt.subplots(figsize=(8, 5))
         if group_col:
-            greys = theme.group_greys(data[group_col].nunique())
-            palette = [g[0] for g in greys]
-            bars = sns.barplot(data=data, x=group_col, y="distance", ax=ax, palette=palette)
-            for patch, (_, hatch) in zip(bars.patches, greys):
+            colors, hatches = _bar_palette(pal_name, data[group_col].nunique())
+            bars = sns.barplot(data=data, x=group_col, y="distance", ax=ax, palette=colors)
+            for patch, hatch in zip(bars.patches, hatches):
                 if hatch:
                     patch.set_hatch(hatch)
             ax.set_xlabel("Group")
@@ -590,6 +1120,8 @@ def render_heatmaps():
              "shape barely changes.")
     intensity = st.slider("Colour intensity", 0.1, 1.0, 0.45, 0.05,
                           help="Lower = lighter overlay so the arena stays visible.")
+    cmap = st.selectbox("Colour map", _HEAT_CMAPS, key="heat_cmap",
+                        help="Density colour scheme. 'Greys' keeps the black & white look.")
 
     # Background is automatic: for "Arena frame" each group panel uses a representative
     # frame from that group's own first animal; "White" uses a plain canvas.
@@ -626,9 +1158,9 @@ def render_heatmaps():
                     fig, ax = plt.subplots()
                     ax.imshow(group_background(ids))
                     if z is not None:
-                        cs = ax.contourf(z, cmap="Greys", alpha=intensity, levels=levels)
+                        cs = ax.contourf(z, cmap=cmap, alpha=intensity, levels=levels)
                         cbar = fig.colorbar(cs, ax=ax, fraction=0.046, pad=0.04)
-                        cbar.set_label("Occupancy density\n(darker = more time spent)")
+                        cbar.set_label("Occupancy density\n(more intense = more time spent)")
                     ax.axis("off")
                     st.pyplot(fig)
                     fig_export(fig, f"heatmap_{name}".replace("/", "-"), f"heat_{i}")
@@ -639,6 +1171,8 @@ def render_zone():
     st.subheader("Time spent in a centred zone")
     sel = animal_selector("zone_animals")
     group_col = group_selector("zone_group")
+    pal_name = st.selectbox("Colour palette", _BAR_PALETTES, key="zone_palette",
+                            help="Bar colours by group. 'Grayscale' keeps the black & white look.")
 
     # The displayed reference frame and each video's mouse_df live in the SAME
     # coordinate space (both had the same config transform applied). So centre the
@@ -685,10 +1219,9 @@ def render_zone():
         st.markdown("**Time in zone [s]**")
         fig, ax = plt.subplots(figsize=(7, 5))
         if group_col:
-            greys = theme.group_greys(data[group_col].nunique())
-            palette = [g[0] for g in greys]
-            bars = sns.barplot(data=data, x=group_col, y="time_in_zone", ax=ax, palette=palette)
-            for patch, (_, hatch) in zip(bars.patches, greys):
+            colors, hatches = _bar_palette(pal_name, data[group_col].nunique())
+            bars = sns.barplot(data=data, x=group_col, y="time_in_zone", ax=ax, palette=colors)
+            for patch, hatch in zip(bars.patches, hatches):
                 if hatch:
                     patch.set_hatch(hatch)
             plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
@@ -781,19 +1314,22 @@ def render_results():
 
 
 def render_records():
-    render_top_bar("Dashboard", "Your saved analyses")
-    a1, a2, _ = st.columns([1, 1, 4])
-    if a1.button("＋ New analysis", type="primary"):
+    render_top_bar("Dashboard", "Your saved analyses", logo=LOGO_PATH)
+    a1, a2, _ = st.columns([1, 1.3, 8], gap="small")
+    if a1.button("Guide", use_container_width=True):
+        go("guide")
+    if a2.button("＋ New analysis", type="primary", use_container_width=True):
         st.session_state["wizard_step"] = 0
         for k in ("video_set", "config", "metadata"):
             st.session_state.pop(k, None)
         go("wizard")
-    if a2.button("Guide"):
-        go("guide")
 
     recs = records.list_records(current_user_key())
     if not recs:
-        st.info("No saved records yet — press New analysis to begin.")
+        st.markdown(
+            "<div style='text-align:center;color:#2f6df0;padding:2.5rem 0;"
+            "font-size:1rem'>No saved records yet — press New analysis to begin.</div>",
+            unsafe_allow_html=True)
         return
 
     opened = st.session_state.get("open_record")
