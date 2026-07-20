@@ -28,8 +28,15 @@ persistent storage of uploaded raw data.
   private to the owning user (already enforced by per-user file isolation); the
   operator does not aggregate, read, or export them.
 - **No raw-data collection:** the app never persists uploaded raw video/pose data.
-- **Domain/hosting:** not yet decided → OAuth redirect and public URL must be
-  **config-driven via env vars**, not hardcoded.
+- **Domain/hosting:** Phase 1 targets **Hugging Face Spaces (Docker SDK)** — the
+  easiest free option (16 GB RAM free, Docker-native). The image stays
+  **platform-neutral** so Fly.io / Cloud Run / self-host work later with a thin
+  adapter. Public URL is config-driven; nothing hardcoded to a domain.
+- **Persistence:** deferred. HF Spaces free storage is **ephemeral** (resets on
+  restart/rebuild) — accepted for the demo. Admin accounts are the durable source
+  of truth, re-seeded from `BAPIPE_ADMINS` env on every start; self-registered
+  users and saved results may reset on restart, which is fine for Phase 1. A
+  durable-volume host (Fly.io) is a later, non-blocking upgrade.
 
 ## Scope
 
@@ -41,7 +48,9 @@ persistent storage of uploaded raw data.
 
 **Out of scope (Phase 2+):** user upload flow, ephemeral processing, object
 storage, Google login, CI/CD pipeline (may be added later), custom domain/HTTPS
-termination (host-specific; app only needs to be reverse-proxy friendly).
+termination (host-specific; app only needs to be reverse-proxy friendly),
+**durable persistence** (HF Spaces ephemeral storage accepted for now; Fly.io or
+a mounted volume is a later upgrade).
 
 ## Groundwork (sequential, done before agents)
 
@@ -56,10 +65,14 @@ termination (host-specific; app only needs to be reverse-proxy friendly).
 The two agents touch disjoint files except for one shared interface — the
 **persistent state layout** and **env schema**. Both must agree on:
 
-- **Persistent volume mount:** `/data` inside the container, holding:
+- **State dir:** `/data` inside the container, holding:
   - `/data/records/` — per-user result snapshots
   - `/data/users.json` — registered users (bcrypt-hashed)
   - `/data/access.json` — admin approval list
+
+  On HF Spaces this dir is **ephemeral** (Phase 1 accepts resets). The code path
+  is identical whether `/data` is a real volume (local/Fly.io) or ephemeral (HF),
+  so no app change is needed to add durability later — only the host config.
 - **Env vars:**
   - `BAPIPE_RECORDS_DIR=/data/records`
   - `BAPIPE_USERS_FILE=/data/users.json` (auth agent introduces this if not present)
@@ -77,7 +90,9 @@ module) so they land on the volume.
 
 ### Agent A — Docker deployment infrastructure
 **Owns (all new files):** `Dockerfile`, `docker-compose.yml`, `.dockerignore`,
-`entrypoint.sh`, `gui_app/.streamlit/config.toml`.
+`entrypoint.sh`, `gui_app/.streamlit/config.toml`, plus HF Spaces glue
+(`README.md` Space header / `app_port` config, listen on `0.0.0.0` and the
+platform port — 7860 on HF, `$PORT` elsewhere).
 
 - Base: Python **3.11** (bapipe pins pandas 1.5.x / numpy 1.x — see
   `gui_app/requirements.txt`).
@@ -122,8 +137,11 @@ coupling is the shared contract above, locked before dispatch.
 
 - **pandas/numpy pinning:** the image must use Python 3.11 and the pinned deps or
   bapipe breaks at import. Non-negotiable.
-- **State persistence:** without the `/data` volume, users and saved results are
-  lost on container restart — the volume is required, not optional.
+- **State persistence:** on HF Spaces `/data` is ephemeral, so self-registered
+  users and saved results reset on restart — accepted for Phase 1. Admins are
+  re-seeded from `BAPIPE_ADMINS` so the app is always usable after a restart.
+  Durable storage (Fly.io volume / mounted disk) is a later, non-blocking upgrade
+  requiring only host config, no code change.
 - **Exposed client secret:** `client_secret*.json` in Downloads is now
   gitignored and unused in Phase 1; recommend re-issuing before any Phase 2 Google
   revival.
