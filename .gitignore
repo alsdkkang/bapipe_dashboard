@@ -140,3 +140,9 @@ gui_app/users.json
 .DS_Store
 **/.DS_Store
 gui_app/records/
+
+# Streamlit secrets in any location (harden: gui_app/.streamlit lives here)
+**/.streamlit/secrets.toml
+# Google OAuth client secrets (unused in phase 1; never commit)
+client_secret*.json
+**/client_secret*.json
