@@ -24,3 +24,4 @@ streamlit
 bcrypt>=4  # email/password hashing when auth is enabled
 Authlib>=1.3.2  # required for Google (OIDC) login when auth is enabled
 httpx>=0.27  # required by Authlib starlette client for Google (OIDC) login
+streamlit-image-coordinates  # click-to-set arena corners in the wizard
