@@ -200,8 +200,8 @@ class Video:
         )
 
         # Forward fill missing points (e.g. ones removed for low confidence)
-        self.mouse_df = self.mouse_df.interpolate(imitection="forward")
-        self.landmarks_df = self.landmarks_df.interpolate(limitection="forward")
+        self.mouse_df = self.mouse_df.ffill()
+        self.landmarks_df = self.landmarks_df.ffill()
 
         # Get first frame in box
         self.get_first_frame_mouse_in_box()
@@ -386,7 +386,7 @@ class Video:
                 count = standardized_distance.sum(axis=1)
                 outliers.loc[:, c] = count >= len(columns) - 1
 
-            df = df.where(~outliers)
+            df = df.where(~outliers.astype(bool))
 
         # Remove keypoints based on individual position changes
         if self.config.outlier_use_bodypart_distance:
