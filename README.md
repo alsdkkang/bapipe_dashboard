@@ -1,13 +1,3 @@
----
-title: Animal Behaviour Analysis
-emoji: 🐭
-colorFrom: gray
-colorTo: gray
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # Behaviour Analysis for Keypoint Data
 A pipeline for processing behavioural keypoint data gathered from deep learning models (we used DeepLabCut). Demonstrates a few common data/figures for posters/publications. 
 

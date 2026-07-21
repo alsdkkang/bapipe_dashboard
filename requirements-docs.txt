@@ -1,0 +1,9 @@
+# bapipe documentation build (jupyter-book). NOT used by the app deployment.
+# Moved here so the repo-root requirements.txt can carry the Streamlit app deps
+# that Streamlit Community Cloud installs. Build docs with:
+#   pip install -r requirements-docs.txt
+jupyter-book
+matplotlib
+numpy
+pydata-sphinx-theme
+opencv-python>=4.5
