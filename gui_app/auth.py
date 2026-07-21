@@ -1,20 +1,23 @@
-"""Login for the bapipe dashboard: email/password (bcrypt) + optional Google (OIDC),
-gated by an admin-approved allow-list.
+"""Login for the bapipe dashboard: email/password (bcrypt), gated by an
+admin-approved allow-list. No Google/OIDC — Phase 1 demo is email/password only.
 
-Auth is ENABLED only when `.streamlit/secrets.toml` has an `[access]` section (admins)
-and/or an `[auth]` section (Google). With no secrets everything here is a no-op, so the
+Auth is ENABLED when at least one admin is configured, either via the
+`BAPIPE_ADMINS` env var (comma-separated emails) or `.streamlit/secrets.toml`'s
+`[access]` section. With no admins configured, everything here is a no-op, so the
 app keeps running locally without any credentials.
 
-- **Email/password**: users self-register; new accounts are stored in `gui_app/users.json`
-  (bcrypt-hashed) and land in the pending list until an admin approves them. Login state is
-  kept in `st.session_state` (a full browser refresh logs the email/password user out —
-  Google login persists via Streamlit's own cookie).
-- **Google**: available when `[auth]` is configured; uses Streamlit's native `st.login`.
-- **Admins** (from `secrets["access"]["admins"]`) are always allowed and approve others from
-  the sidebar. Approvals live in `gui_app/access.json`.
+- **Email/password**: users self-register; new accounts are stored in the users
+  state file (bcrypt-hashed, path from `BAPIPE_USERS_FILE`, default
+  `gui_app/users.json`) and land in the pending list until an admin approves them.
+  Login state is kept in `st.session_state` (a full browser refresh logs the user
+  out).
+- **Admins** (from `BAPIPE_ADMINS` and/or `secrets["access"]["admins"]`) are always
+  allowed and approve others from the sidebar. Approvals live in the access state
+  file (path from `BAPIPE_ACCESS_FILE`, default `gui_app/access.json`).
 """
 import html
 import json
+import os
 import re
 from pathlib import Path
 
@@ -22,9 +25,15 @@ import bcrypt
 import streamlit as st
 
 HERE = Path(__file__).resolve().parent
-ACCESS_FILE = HERE / "access.json"
-USERS_FILE = HERE / "users.json"
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _access_file() -> Path:
+    return Path(os.environ.get("BAPIPE_ACCESS_FILE", str(HERE / "access.json")))
+
+
+def _users_file() -> Path:
+    return Path(os.environ.get("BAPIPE_USERS_FILE", str(HERE / "users.json")))
 
 
 # --------------------------------------------------------------------------- #
@@ -38,35 +47,35 @@ def _secret(section):
 
 
 def auth_enabled():
-    return _secret("access") is not None or _secret("auth") is not None
+    return bool(_seed_admins()) or _secret("access") is not None
 
 
 def google_enabled():
-    if _secret("auth") is None:
-        return False
-    try:
-        import authlib  # noqa: F401
-        return True
-    except Exception:
-        return False
+    # Google/OIDC removed for the Phase 1 demo. Always disabled.
+    return False
 
 
 # --------------------------------------------------------------------------- #
 # Storage
 # --------------------------------------------------------------------------- #
 def _seed_admins():
+    admins = []
     acc = _secret("access")
     try:
-        return [e.strip().lower() for e in acc["admins"]]
+        admins += [e.strip().lower() for e in acc["admins"]]
     except Exception:
-        return []
+        pass
+    env = os.environ.get("BAPIPE_ADMINS", "")
+    admins += [e.strip().lower() for e in env.split(",") if e.strip()]
+    return sorted(set(admins))
 
 
 def _load_access():
     data = {"admins": [], "approved": [], "pending": {}}
-    if ACCESS_FILE.exists():
+    p = _access_file()
+    if p.exists():
         try:
-            data.update(json.loads(ACCESS_FILE.read_text()))
+            data.update(json.loads(p.read_text()))
         except Exception:
             pass
     data["admins"] = sorted(set(data.get("admins", [])) | set(_seed_admins()))
@@ -76,20 +85,25 @@ def _load_access():
 
 
 def _save_access(data):
-    ACCESS_FILE.write_text(json.dumps(data, indent=2))
+    p = _access_file()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2))
 
 
 def _load_users():
-    if USERS_FILE.exists():
+    p = _users_file()
+    if p.exists():
         try:
-            return json.loads(USERS_FILE.read_text())
+            return json.loads(p.read_text())
         except Exception:
             pass
     return {}
 
 
 def _save_users(users):
-    USERS_FILE.write_text(json.dumps(users, indent=2))
+    p = _users_file()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(users, indent=2))
 
 
 def _allowed(email):
@@ -143,8 +157,6 @@ def verify(email, password):
 # --------------------------------------------------------------------------- #
 def _current():
     """Return (email, name) of the signed-in user, or (None, None)."""
-    if google_enabled() and getattr(st.user, "is_logged_in", False):
-        return (st.user.email or "").lower(), getattr(st.user, "name", "") or ""
     email = st.session_state.get("auth_email")
     if email:
         return email, st.session_state.get("auth_name", "")
@@ -157,8 +169,6 @@ def current_user():
 
 
 def _logout():
-    if google_enabled() and getattr(st.user, "is_logged_in", False):
-        st.logout()
     st.session_state.pop("auth_email", None)
     st.session_state.pop("auth_name", None)
 
@@ -219,11 +229,6 @@ def _login_page(logo_path):
                 st.rerun()
             else:
                 st.error("Incorrect email or password.")
-
-        if google_enabled():
-            st.markdown("<div style='text-align:center;color:#888;margin:0.3rem 0'>or</div>",
-                        unsafe_allow_html=True)
-            st.button("Log in with Google", on_click=st.login, use_container_width=True)
 
         st.caption("Don't have an account?")
         if st.button("Sign up", use_container_width=True):
