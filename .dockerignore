@@ -1,0 +1,16 @@
+.git/
+**/__pycache__/
+**/*.pyc
+.venv/
+gui_app/.venv/
+gui_app/users.json
+gui_app/access.json
+gui_app/records/
+**/.streamlit/secrets.toml
+client_secret*.json
+docs/
+docs.bk/
+_build/
+*.zip
+.DS_Store
+**/.DS_Store
