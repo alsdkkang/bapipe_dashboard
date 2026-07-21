@@ -1,0 +1,13 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      BAPIPE_ADMINS: "admin@example.com"
+    volumes:
+      - bapipe_data:/data          # durable users/records for LOCAL runs
+      # - ./sample_data:/data/sample:ro  # optional: demo dataset folder to enter in the wizard
+
+volumes:
+  bapipe_data:
