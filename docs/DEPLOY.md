@@ -1,19 +1,30 @@
 # Deploying the demo to Hugging Face Spaces (Docker)
 
+The repo root `README.md` already carries the HF front-matter
+(`sdk: docker`, `app_port: 7860`), so pushing this repo to a Space builds and
+serves the Dockerfile directly — no file copying needed.
+
 ## One-time setup
-1. Create a new Space: **SDK = Docker**, hardware = free CPU basic.
-2. In the Space repo, use `deploy/hf-space-README.md` as `README.md`
-   (the YAML header sets `sdk: docker` and `app_port: 7860`).
-3. Space **Settings → Variables and secrets**: add secret
+1. Create a new Space on Hugging Face: **SDK = Docker**, hardware = free CPU basic.
+2. Space **Settings → Variables and secrets** → add a secret
    `BAPIPE_ADMINS = you@example.com` (comma-separated for multiple admins).
+   Without it, auth is disabled and the app is open to everyone.
 
 ## Push the code
-Add the Space as a git remote and push the repo root (which holds `Dockerfile`):
+Add the Space as a git remote and push (⚠️ use a NEW remote named `space` — do
+NOT push to `origin`, which is the upstream author's repo):
 ```bash
 git remote add space https://huggingface.co/spaces/<user>/<space>
 git push space HEAD:main
 ```
-The Space builds the Dockerfile and serves on port 7860.
+HF builds the root `Dockerfile` and serves Streamlit on port 7860. The first
+build takes a few minutes (installs ffmpeg / HDF5 / the scientific stack).
+
+## Verify
+- Open the Space URL → you should land on the login page (auth is on because
+  `BAPIPE_ADMINS` is set).
+- Self-register, then approve the account from the sidebar Admin panel while
+  logged in as an admin email listed in `BAPIPE_ADMINS`.
 
 ## Notes
 - Storage is **ephemeral** on the free tier: self-registered users and saved
