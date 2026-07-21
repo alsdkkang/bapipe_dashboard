@@ -1,5 +1,6 @@
-jupyter-book
-matplotlib
-numpy
-pydata-sphinx-theme
-opencv-python>=4.5
+# Streamlit Community Cloud installs Python deps from this repo-root file.
+# App deployment deps = the pinned GUI requirements (reused, DRY).
+# IMPORTANT: select Python 3.11 in the app's Advanced settings — the bapipe
+# library targets pandas 1.5.x / numpy 1.x and breaks on newer versions.
+# (bapipe's documentation-build deps moved to requirements-docs.txt.)
+-r gui_app/requirements.txt
