@@ -58,6 +58,26 @@ def test_app_phase_without_data_redirects():
     assert not at.exception
 
 
+def test_admin_sees_pending_approvals(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+    monkeypatch.setenv("BAPIPE_ACCESS_FILE", str(tmp_path / "access.json"))
+    monkeypatch.setenv("BAPIPE_USERS_FILE", str(tmp_path / "users.json"))
+    import auth
+    import importlib
+    importlib.reload(auth)
+    # An admin is signed in (via _fresh_apptest) and one user is awaiting approval.
+    auth._save_access({"admins": ["tester@example.com"], "approved": [],
+                       "pending": {"newbie@example.com": "Newbie"}})
+    at = _fresh_apptest()
+    at.session_state["phase"] = "records"
+    at.run()
+    assert not at.exception
+    labels = [b.label for b in at.button]
+    assert any("Approve" in l for l in labels), "admin approvals UI not rendered"
+    texts = [m.value for m in at.markdown]
+    assert any("newbie@example.com" in (t or "") for t in texts), "pending user not shown"
+
+
 def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
     monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
     import records as recmod
