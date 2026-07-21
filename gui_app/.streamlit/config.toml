@@ -1,0 +1,14 @@
+# Proxy-friendly defaults for containerized / HF Spaces deployment.
+[server]
+headless = true
+address = "0.0.0.0"
+port = 7860
+enableCORS = false
+enableXsrfProtection = false
+maxUploadSize = 2048
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
