@@ -7,7 +7,7 @@ gui_app/users.json
 gui_app/access.json
 gui_app/records/
 **/.streamlit/secrets.toml
-client_secret*.json
+**/client_secret*.json
 docs/
 docs.bk/
 _build/
