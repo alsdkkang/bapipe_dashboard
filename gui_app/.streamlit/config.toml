@@ -1,12 +1,7 @@
-# Proxy-friendly defaults for containerized / HF Spaces deployment.
-[server]
-headless = true
-address = "0.0.0.0"
-port = 7860
-enableCORS = false
-enableXsrfProtection = false
-maxUploadSize = 2048
-
+# App-level preferences only. Do NOT set [server] host/port/CORS here:
+# Streamlit Community Cloud manages those itself and forcing them breaks its
+# health check. Container/proxy server flags are passed by entrypoint.sh
+# (--server.port/address/enableCORS/enableXsrfProtection) for Docker deploys.
 [browser]
 gatherUsageStats = false
 
