@@ -573,6 +573,7 @@ def do_load(selected_ids):
     st.session_state["meta_path"] = meta_path
     st.session_state["join_col"] = join_col
     st.session_state.pop("_frame_cache", None)  # frames may differ under the new config
+    st.session_state.pop("_montage", None)  # force the montage to rebuild for this load
     st.session_state["metadata"] = (
         load_metadata(meta_path, join_col)
         if meta_path and Path(meta_path).exists() else None
@@ -1315,6 +1316,7 @@ def render_results():
 
 def render_records():
     render_top_bar("Dashboard", "Your saved analyses", logo=LOGO_PATH)
+    auth.admin_panel()
     a1, a2, _ = st.columns([1, 1.3, 8], gap="small")
     if a1.button("Guide", use_container_width=True):
         go("guide")

@@ -264,24 +264,18 @@ def require_login(logo_path=None):
 
 
 # --------------------------------------------------------------------------- #
-# Sidebar account + admin panel
+# Admin approvals panel (rendered in the main area — the dashboard is sidebar-less)
 # --------------------------------------------------------------------------- #
-def sidebar_account():
+def admin_panel():
+    """Admin-only approvals UI, rendered in the main content area. No-op unless
+    auth is enabled and the signed-in user is an admin."""
     if not auth_enabled():
         return
     email, _ = _current()
-    if not email:
+    if not email or not is_admin(email):
         return
     data = _load_access()
-    is_admin = email in set(data["admins"])
-
-    st.sidebar.markdown("---")
-    st.sidebar.caption(f"Signed in as {email}{' (admin)' if is_admin else ''}")
-    st.sidebar.button("Log out", on_click=_logout, use_container_width=True)
-
-    if not is_admin:
-        return
-    with st.sidebar.expander(f"Admin — approvals ({len(data['pending'])} pending)"):
+    with st.expander(f"Admin — approvals ({len(data['pending'])} pending)"):
         for pemail, pname in list(data["pending"].items()):
             c1, c2 = st.columns([3, 1])
             c1.write(f"{pemail}" + (f" · {pname}" if pname else ""))
