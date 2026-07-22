@@ -24,6 +24,8 @@ from pathlib import Path
 import bcrypt
 import streamlit as st
 
+import notifications
+
 HERE = Path(__file__).resolve().parent
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -283,6 +285,13 @@ def admin_panel():
                 data["approved"] = sorted(set(data["approved"]) | {pemail})
                 data["pending"].pop(pemail, None)
                 _save_access(data)
+                ok, info = notifications.send_approval_email(pemail, pname)
+                if ok:
+                    st.toast(f"Approved {pemail} — email sent")
+                elif info == "email not configured":
+                    st.toast(f"Approved {pemail}")
+                else:
+                    st.toast(f"Approved {pemail}; email failed: {info}")
                 st.rerun()
         if not data["pending"]:
             st.caption("No pending requests.")

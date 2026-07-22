@@ -23,8 +23,17 @@ The easiest free host for this Streamlit app. No Docker needed; it installs from
    ```toml
    [access]
    admins = ["you@example.com"]
+
+   # Optional: email approved users "you can now log in" (Gmail SMTP).
+   # Needs 2-Step Verification on the Gmail account + an App Password
+   # (https://myaccount.google.com/apppasswords). Omit this section to skip email.
+   [email]
+   sender = "you@gmail.com"
+   app_password = "abcd efgh ijkl mnop"
+   app_url = "https://your-app.streamlit.app"
    ```
-   Without a secret, auth is disabled and the app is open to everyone.
+   Without the `[access]` secret, auth is disabled and the app is open to everyone.
+   Without `[email]`, approvals still work but no email is sent.
 6. **Deploy**. First build takes a few minutes (installs ffmpeg / HDF5 / the
    scientific stack). You get a `https://<app>.streamlit.app` URL.
 
