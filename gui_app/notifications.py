@@ -52,7 +52,7 @@ def send_approval_email(to_email, to_name=""):
         f"Your account ({to_email}) has been approved for the Animal Behaviour "
         f"Analysis dashboard. You can now log in"
         + (f" at {app_url}" if app_url else "")
-        + ".\n\n— The study admin"
+        + ".\n\n— Abizaid Lab"
     )
     msg = EmailMessage()
     msg["Subject"] = "Your access has been approved"
