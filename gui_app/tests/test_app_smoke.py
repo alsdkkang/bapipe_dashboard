@@ -128,6 +128,21 @@ def test_app_phase_has_left_nav(tmp_path, monkeypatch):
     assert "Overview" in opts and "Distance" in opts
 
 
+def test_overview_shows_kpi_tiles(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+    at = _apptest_with_sample_loaded()
+    if at is None:
+        import pytest
+        pytest.skip("sample_data not bundled")
+    at.session_state["phase"] = "app"
+    at.session_state["app_view"] = "Overview"
+    at.run()
+    assert not at.exception
+    md = [m.value for m in at.markdown]
+    assert any("Animals" in (t or "") for t in md)
+    assert any("Groups" in (t or "") for t in md)
+
+
 def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
     monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
     import records as recmod
