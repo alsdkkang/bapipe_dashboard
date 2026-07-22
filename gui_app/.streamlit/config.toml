@@ -7,3 +7,4 @@ gatherUsageStats = false
 
 [theme]
 base = "light"
+primaryColor = "#4F46E5"

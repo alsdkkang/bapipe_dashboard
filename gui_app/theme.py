@@ -33,6 +33,12 @@ CSS = """
   --canvas:#fafafa; --card:#ffffff; --sunken:#f4f4f4;
   --border:#e0e0e0; --border-strong:#cccccc;
   --radius:10px;
+  /* Indigo accent — UI signals only (buttons/links/active/focus), never chart data. */
+  --accent:#4F46E5; --accent-hover:#4338CA; --accent-weak:#EEF0FD; --on-accent:#ffffff;
+  --focus:#4F46E5;
+  --success:#1c6a2e; --success-weak:#e7f6ec;
+  --warning:#8a5a00; --warning-weak:#fff4e0;
+  --danger:#a11b1b;  --danger-weak:#fdecec;
 }
 html, body, [class*="css"]{ font-family:var(--font-sans); color:var(--body); }
 .stApp{ background:var(--canvas); }
