@@ -45,6 +45,7 @@ import records
 import routing
 import theme
 import guide
+import samples
 importlib.reload(records)
 importlib.reload(routing)
 importlib.reload(theme)
@@ -1319,7 +1320,7 @@ def render_results():
 def render_records():
     render_top_bar("Dashboard", "Your saved analyses", logo=LOGO_PATH)
     auth.admin_panel()
-    a1, a2, _ = st.columns([1, 1.3, 8], gap="small")
+    a1, a2, a3, _ = st.columns([1, 1.3, 1.6, 6], gap="small")
     if a1.button("Guide", use_container_width=True):
         go("guide")
     if a2.button("＋ New analysis", type="primary", use_container_width=True):
@@ -1327,6 +1328,13 @@ def render_records():
         for k in ("video_set", "config", "metadata"):
             st.session_state.pop(k, None)
         go("wizard")
+    if samples.sample_available() and a3.button(
+            "Load sample experiment", use_container_width=True,
+            help="Open a small bundled 4-animal experiment — no data needed."):
+        for k in ("video_set", "config", "metadata"):
+            st.session_state.pop(k, None)
+        samples.prime_sample()
+        go("loading")
 
     recs = records.list_records(current_user_key())
     if not recs:

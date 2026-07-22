@@ -83,6 +83,29 @@ def test_admin_sees_pending_approvals(tmp_path, monkeypatch):
     assert any("newbie@example.com" in (t or "") for t in texts), "pending user not shown"
 
 
+def test_load_sample_populates_video_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+    import samples
+    import importlib
+    importlib.reload(samples)
+    if not samples.sample_available():
+        import pytest
+        pytest.skip("sample_data not bundled")
+    at = _fresh_apptest()
+    at.session_state["data_video_dir"] = str(samples.SAMPLE_DIR / "videos")
+    at.session_state["data_dlc_dir"] = str(samples.SAMPLE_DIR / "mouse_labels")
+    at.session_state["data_landmark_dir"] = str(samples.SAMPLE_DIR / "landmark_labels")
+    at.session_state["data_calib_path"] = str(samples.SAMPLE_DIR / "camera_calibrations.json")
+    at.session_state["data_meta_path"] = str(samples.SAMPLE_DIR / "metadata.csv")
+    at.session_state["data_join_col"] = "id"
+    at.session_state["pending_load_ids"] = list(samples.SAMPLE_IDS)
+    at.session_state["phase"] = "loading"
+    at.run()
+    assert not at.exception
+    assert "video_set" in at.session_state
+    assert list(at.session_state["video_set"].index) == ["f1", "f2", "f3", "f4"]
+
+
 def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
     monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
     import records as recmod
