@@ -45,3 +45,12 @@ def test_config_sets_indigo_primary():
     cfg = tomllib.load(open(Path(__file__).resolve().parents[1] / ".streamlit" / "config.toml", "rb"))
     assert cfg["theme"]["primaryColor"].lower() == "#4f46e5"
     assert "server" not in cfg  # must not manage the server on Streamlit Cloud
+
+
+def test_button_and_focus_css_present():
+    css = theme.CSS
+    assert 'button[kind="secondary"]' in css
+    assert 'button[kind="primary"]' in css and "var(--accent)" in css
+    assert "var(--focus)" in css and ":focus-visible" in css
+    # the old blanket-black rule that made ALL buttons black is gone
+    assert "div.stButton > button{ background:var(--ink)" not in css.replace("\n", " ")
