@@ -101,12 +101,13 @@ tighten heading scale and unify radius (buttons use `--radius`).
 A small **"Chart colors"** control on the analysis dashboard lets the analyst
 choose how group series and heatmaps are colored. Renders live (charts redraw).
 
-- **Preset selector** (curated, dataviz-driven): at minimum **Greyscale (default,
-  publication-neutral)**, a **colorblind-safe categorical** set, **Viridis**
-  (perceptually-uniform) and one more categorical (e.g. Set2-like). Categorical
-  presets supply the group series; sequential presets/colormaps supply the heatmap.
-  Exact palette values chosen at implementation time following the `dataviz` skill
-  (colorblind-safe, sufficient contrast, consistent in light mode).
+- **Preset selector** — **already implemented per-view** today via `_BAR_PALETTES`
+  (`Grayscale`, `tab10`, `Set2`, `Set1`, `Dark2`, `Paired`, `colorblind`) +
+  `_HEAT_CMAPS` (`Greys`, `viridis`, `Blues`, …) and `_bar_palette()`. This pass
+  **consolidates** those per-view dropdowns into a single "Chart colors" control
+  (lives in the sidebar — Plan 2) and curates the preset list per the `dataviz`
+  skill (colorblind-safe categorical, perceptually-uniform sequential). Greyscale
+  stays the publication-neutral default.
 - **Per-group override:** an optional color picker per group id (treatment/sex/
   cohort). An override wins over the preset for that group; unset groups fall back
   to the preset.
