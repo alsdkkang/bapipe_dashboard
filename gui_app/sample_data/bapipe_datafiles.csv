@@ -1,0 +1,5 @@
+id,video,mouse_labels,landmark_labels,camera_calibrations
+f1,videos/f1.mp4,mouse_labels/f1DLC_resnet50_agrpNov19shuffle1_400000.h5,landmark_labels/f1_landmarks.h5,camera_calibrations.json
+f2,videos/f2.mp4,mouse_labels/f2DLC_resnet50_agrpNov19shuffle1_400000.h5,landmark_labels/f2_landmarks.h5,camera_calibrations.json
+f3,videos/f3.mp4,mouse_labels/f3DLC_resnet50_agrpNov19shuffle1_400000.h5,landmark_labels/f3_landmarks.h5,camera_calibrations.json
+f4,videos/f4.mp4,mouse_labels/f4DLC_resnet50_agrpNov19shuffle1_400000.h5,landmark_labels/f4_landmarks.h5,camera_calibrations.json
