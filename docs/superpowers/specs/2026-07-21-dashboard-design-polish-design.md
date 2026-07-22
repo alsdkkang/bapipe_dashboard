@@ -23,15 +23,28 @@ chart/heatmap palettes** (presets + per-group overrides).
   sequential colormap.
 - **Uniform scope:** foundation tokens first, then every screen.
 - **Light theme only** (no dark mode this pass).
+- **Analysis dashboard gets a reference-driven layout** (card-based KPI dashboard,
+  modeled on the user's Figma "Analytics Dashboard" reference): a **left sidebar
+  nav** (re-enabled for the analysis screens) + a KPI-tile row + a main chart +
+  detail cards. This intentionally revisits the earlier sidebar-less choice, for
+  the analysis screens only.
+- **Bundle a small sample experiment** + a "Load sample" entry so the deployed
+  demo opens straight into a populated dashboard (raw data still never persisted;
+  the sample is read-only fixtures shipped in the repo).
+- **Demo defaults to an Indigo chart preset** (matches the reference's colored
+  look); Greyscale remains a selectable preset.
 
 ## Scope
 
 **In scope:** design tokens (accent + semantic + type/space), primary/secondary
 button distinction, links/active-tab/focus states, state-feedback consistency,
-empty-state cleanup, per-screen application, and the chart-palette feature.
+empty-state cleanup, per-screen application, the chart-palette feature, the
+reference-driven analysis-dashboard layout (sidebar nav + KPI tiles + main chart +
+detail cards), and a bundled sample experiment with a "Load sample" entry.
 
-**Out of scope:** dark mode, new analyses/features beyond the palette control,
-auth/deploy changes, restructuring analysis logic.
+**Out of scope:** dark mode, auth/deploy changes, and rewriting the underlying
+`bapipe` analysis computations (the redesign reuses them). New analytical metrics
+beyond surfacing existing computed values as KPI tiles/cards are out of scope.
 
 ## Current state (grounding)
 
@@ -116,24 +129,75 @@ choose how group series and heatmaps are colored. Renders live (charts redraw).
 - `palette_controls()` — renders the selector + per-group pickers, reads/writes
   session state, returns the active `(preset, overrides)`.
 
+## Analysis dashboard redesign (reference-driven)
+
+Rework the analysis screen (currently top `st.tabs` with a plain Overview table)
+into a card-based KPI dashboard, mapping the Figma reference onto the app's mouse-
+behaviour data:
+
+- **Left sidebar** (`st.sidebar`, re-enabled + styled): logo, nav items (Overview,
+  Distance, Heatmaps, Time in zone) replacing the top tabs, the **"Chart colors"**
+  palette control, and the account/logout at the bottom. The global CSS that hides
+  the sidebar (`section[data-testid="stSidebar"]{display:none}`) is scoped so it no
+  longer hides it on the analysis screens.
+- **Overview = the main screen**, laid out as:
+  - **Filters row:** experiment name + group/animal filter (reuses `animal_selector`
+    + group columns) + a Download action.
+  - **KPI tile row** (uses the existing, currently-unused `theme.stat_tile`):
+    Animals (count), Groups (count), Total distance (mean per animal), Avg recording
+    length — computed from the loaded videos + `analysis` helpers.
+  - **Main chart:** distance-by-group bar chart (palette applied) — the reference's
+    large activity chart slot.
+  - **Detail cards:** *By group* (per-group summary / horizontal bars) and *Animal
+    ranking* (most→least active animals, leaderboard style) from the per-animal
+    results.
+- **Distance / Heatmaps / Time-in-zone** views adopt the same card styling and the
+  chart palette; charts otherwise keep their existing computations.
+
+This is a layout/presentation change — the underlying `bapipe` analysis
+computations (`render_distance`, `render_heatmaps`, `render_zone`, montage) are
+reused, not rewritten.
+
+## Sample data
+
+- Curate a **small sample experiment** from the local `v4` dataset (one manifest +
+  a few animals' videos/`.h5`, trimmed to megabytes) committed under
+  `gui_app/sample_data/` so it ships with the app (and the deployed Streamlit
+  Cloud demo).
+- Add a **"Load sample experiment"** action (on welcome / records home) that loads
+  this bundle straight into the analysis dashboard, so the demo opens populated —
+  no upload, nothing persisted.
+- The sample must be small enough for Streamlit Community Cloud (repo stays light;
+  keep well under the free-tier limits). If no adequately small valid subset can be
+  produced, surface that rather than committing a large asset.
+
 ## Files affected
 
-- `gui_app/theme.py` — accent + semantic tokens, button/link/focus/tab CSS,
-  keep `group_greys` (now the Greyscale preset source).
+- `gui_app/theme.py` — accent + semantic tokens, button/link/focus/tab CSS, sidebar
+  re-enabled + styled (scope the display:none rule), keep `group_greys` (now the
+  Greyscale preset source).
 - `gui_app/.streamlit/config.toml` — add `[theme] primaryColor = "#4F46E5"`.
 - `gui_app/palette.py` — **new**: presets + resolver + controls.
-- `gui_app/app.py` — render `palette.palette_controls()` on the dashboard; feed
-  the resolved colors into the bar-chart and heatmap rendering; replace hardcoded
-  `group_greys(...)` / `"Greys"` calls; remove the `#2f6df0` empty-state color;
-  route status tiles through semantic tokens; apply primary/secondary button types.
+- `gui_app/app.py` — sidebar nav (replacing top tabs) + palette control + account
+  in the sidebar; rebuild `render_overview` as the KPI-tile/main-chart/detail-card
+  layout using `theme.stat_tile`; feed resolved palette into bar-chart/heatmap
+  rendering; replace hardcoded `group_greys(...)`/`"Greys"`; remove the `#2f6df0`
+  empty-state color; route status tiles through semantic tokens; apply
+  primary/secondary button types; add the "Load sample experiment" entry.
+- `gui_app/sample_data/` — **new**: the trimmed sample experiment (manifest +
+  small videos/`.h5`) committed for the demo.
+- `gui_app/samples.py` — **new** (small): resolve the bundled sample path and load
+  it into the same session state the wizard produces.
 - `gui_app/tests/` — unit tests for `palette.py` (preset resolve + override
-  precedence + Greyscale parity with `group_greys`).
+  precedence + Greyscale parity with `group_greys`); AppTest smoke for the redesigned
+  Overview (KPI tiles render) and the sidebar nav.
 
 ## Per-screen application (uniform)
 
 Login, records home (empty state + admin panel + record cards + "New analysis"
-primary), wizard (active step = accent, primary "Next" / secondary "Back"),
-analysis dashboard (active tab = accent, stat tiles, palette control), guide.
+primary + "Load sample" entry), wizard (active step = accent, primary "Next" /
+secondary "Back"), analysis dashboard (sidebar nav + KPI tiles + main chart +
+detail cards + palette control), guide.
 
 ## Risks / notes
 
