@@ -46,12 +46,29 @@ html, body, [class*="css"]{ font-family:var(--font-sans); color:var(--body); }
 section[data-testid="stSidebar"]{ display:none !important; }
 div[data-testid="collapsedControl"]{ display:none !important; }
 [data-testid="stStatusWidget"]{ display:none !important; }
-/* black primary buttons */
+/* Buttons: default = neutral outline; primary (type="primary") = indigo accent. */
 div.stButton > button{
-  background:var(--ink); color:#fff; border:1px solid var(--ink); border-radius:7px;
-  font-family:var(--font-sans);
+  font-family:var(--font-sans); border-radius:var(--radius);
 }
-div.stButton > button:hover{ background:#fff; color:var(--ink); }
+div.stButton > button[kind="secondary"]{
+  background:var(--card); color:var(--ink); border:1px solid var(--border-strong);
+}
+div.stButton > button[kind="secondary"]:hover{
+  background:var(--sunken); border-color:var(--ink);
+}
+div.stButton > button[kind="primary"]{
+  background:var(--accent); color:var(--on-accent); border:1px solid var(--accent);
+}
+div.stButton > button[kind="primary"]:hover{
+  background:var(--accent-hover); border-color:var(--accent-hover);
+}
+/* Links + interactive accents */
+a, a:visited{ color:var(--accent); }
+a:hover{ color:var(--accent-hover); }
+/* Visible keyboard focus ring */
+:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; border-radius:6px; }
+/* Active tab underline in accent */
+button[data-baseweb="tab"][aria-selected="true"]{ color:var(--ink); box-shadow:inset 0 -2px 0 var(--accent); }
 h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
 .mono{ font-family:var(--font-mono); }
 .eyebrow{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
