@@ -83,14 +83,14 @@ def test_admin_sees_pending_approvals(tmp_path, monkeypatch):
     assert any("newbie@example.com" in (t or "") for t in texts), "pending user not shown"
 
 
-def test_load_sample_populates_video_set(tmp_path, monkeypatch):
-    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+def _apptest_with_sample_loaded():
+    """AppTest with the bundled sample loaded (run through the loading phase).
+    Returns None if the sample isn't bundled (callers should skip)."""
     import samples
     import importlib
     importlib.reload(samples)
     if not samples.sample_available():
-        import pytest
-        pytest.skip("sample_data not bundled")
+        return None
     at = _fresh_apptest()
     at.session_state["data_video_dir"] = str(samples.SAMPLE_DIR / "videos")
     at.session_state["data_dlc_dir"] = str(samples.SAMPLE_DIR / "mouse_labels")
@@ -101,9 +101,31 @@ def test_load_sample_populates_video_set(tmp_path, monkeypatch):
     at.session_state["pending_load_ids"] = list(samples.SAMPLE_IDS)
     at.session_state["phase"] = "loading"
     at.run()
+    return at
+
+
+def test_load_sample_populates_video_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+    at = _apptest_with_sample_loaded()
+    if at is None:
+        import pytest
+        pytest.skip("sample_data not bundled")
     assert not at.exception
     assert "video_set" in at.session_state
     assert list(at.session_state["video_set"].index) == ["f1", "f2", "f3", "f4"]
+
+
+def test_app_phase_has_left_nav(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+    at = _apptest_with_sample_loaded()
+    if at is None:
+        import pytest
+        pytest.skip("sample_data not bundled")
+    at.session_state["phase"] = "app"
+    at.run()
+    assert not at.exception
+    opts = [o for r in at.radio for o in r.options]
+    assert "Overview" in opts and "Distance" in opts
 
 
 def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
