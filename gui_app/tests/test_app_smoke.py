@@ -58,6 +58,11 @@ def test_app_phase_without_data_redirects():
     assert not at.exception
 
 
+def test_no_stray_blue_in_app_source():
+    src = (GUI_APP / "app.py").read_text()
+    assert "#2f6df0" not in src, "stray blue should be replaced by a token"
+
+
 def test_admin_sees_pending_approvals(tmp_path, monkeypatch):
     monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
     monkeypatch.setenv("BAPIPE_ACCESS_FILE", str(tmp_path / "access.json"))

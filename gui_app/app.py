@@ -801,8 +801,10 @@ def render_wizard():
             st.caption(("✓ Lens-distortion correction will be applied." if _cok
                         else "⚠ Calibration file not found — lens correction will be skipped."))
         if data_status:
-            _bg = {"success": "#e7f6ec", "warn": "#fff4e0"}.get(data_status[0], "#fdecec")
-            _fg = {"success": "#1c6a2e", "warn": "#8a5a00"}.get(data_status[0], "#a11b1b")
+            _bg = {"success": "var(--success-weak)", "warn": "var(--warning-weak)"}.get(
+                data_status[0], "var(--danger-weak)")
+            _fg = {"success": "var(--success)", "warn": "var(--warning)"}.get(
+                data_status[0], "var(--danger)")
             st.markdown(
                 f"<span style='display:inline-block;background:{_bg};color:{_fg};"
                 f"padding:6px 12px;border-radius:6px;font-size:13px'>{data_status[1]}</span>",
@@ -1329,7 +1331,7 @@ def render_records():
     recs = records.list_records(current_user_key())
     if not recs:
         st.markdown(
-            "<div style='text-align:center;color:#2f6df0;padding:2.5rem 0;"
+            "<div style='text-align:center;color:var(--muted);padding:2.5rem 0;"
             "font-size:1rem'>No saved records yet — press New analysis to begin.</div>",
             unsafe_allow_html=True)
         return
