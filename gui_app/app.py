@@ -1403,14 +1403,6 @@ elif phase == "app":
     if "video_set" not in st.session_state:
         go("wizard")
     render_top_bar("Analysis", "Explore your loaded experiment")
-    nav1, nav2, _ = st.columns([1, 1, 6])
-    if nav1.button("← Change data", key="app_change"):
-        for k in ("video_set", "config", "metadata"):
-            st.session_state.pop(k, None)
-        st.session_state["wizard_step"] = 0
-        go("wizard")
-    if nav2.button("Guide", key="app_guide"):
-        go("guide")
     video_set = st.session_state["video_set"]
     config = st.session_state["config"]
     metadata = st.session_state["metadata"]
@@ -1421,18 +1413,23 @@ elif phase == "app":
     all_ids = list(manifest_all["id"].astype(str)) if manifest_all is not None else list(video_set.index)
     loaded_ids = list(video_set.index)
 
-    tabs = st.tabs(["Overview", "Distance", "Heatmaps", "Time in zone",
-                    "Validation video", "Results"])
-    with tabs[0]:
-        render_overview()
-    with tabs[1]:
-        render_distance()
-    with tabs[2]:
-        render_heatmaps()
-    with tabs[3]:
-        render_zone()
-    with tabs[4]:
-        render_validation()
-    with tabs[5]:
-        render_results()
+    VIEWS = ["Overview", "Distance", "Heatmaps", "Time in zone", "Validation video", "Results"]
+    _view_fns = {"Overview": render_overview, "Distance": render_distance,
+                 "Heatmaps": render_heatmaps, "Time in zone": render_zone,
+                 "Validation video": render_validation, "Results": render_results}
+    nav_col, content = st.columns([1.25, 6], gap="large")
+    with nav_col:
+        st.markdown("<div class='navwrap'>", unsafe_allow_html=True)
+        view = st.radio("Views", VIEWS, key="app_view", label_visibility="collapsed")
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        if st.button("← Change data", key="app_change", use_container_width=True):
+            for k in ("video_set", "config", "metadata"):
+                st.session_state.pop(k, None)
+            st.session_state["wizard_step"] = 0
+            go("wizard")
+        if st.button("Guide", key="app_guide", use_container_width=True):
+            go("guide")
+    with content:
+        _view_fns[view]()
     st.stop()
