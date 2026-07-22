@@ -22,6 +22,8 @@ for p in (str(HERE), str(SRC)):
         sys.path.insert(0, p)
 
 import cv2
+import matplotlib
+matplotlib.use("Agg")  # render figures to images (st.pyplot); never the GUI backend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -46,6 +48,7 @@ import routing
 import theme
 import guide
 import samples
+import palette
 importlib.reload(records)
 importlib.reload(routing)
 importlib.reload(theme)
@@ -1008,20 +1011,6 @@ def render_top_bar(title, sub, logo=None):
 
 
 # ---- Overview ------------------------------------------------------------- #
-_BAR_PALETTES = ["Grayscale", "tab10", "Set2", "Set1", "Dark2", "Paired", "colorblind"]
-_HEAT_CMAPS = ["Greys", "Blues", "Reds", "Greens", "Oranges", "Purples",
-               "viridis", "magma", "plasma", "inferno", "coolwarm", "hot"]
-
-
-def _bar_palette(name, n):
-    """Return (colors, hatches) for n groups. 'Grayscale' keeps the B&W look
-    (grey ramp + hatch); any other name uses that seaborn/matplotlib palette."""
-    if name == "Grayscale":
-        greys = theme.group_greys(n)
-        return [g[0] for g in greys], [g[1] for g in greys]
-    return sns.color_palette(name, n).as_hex(), [""] * n
-
-
 def render_overview():
     sel = animal_selector("ov_animals")
     group_col = group_selector("ov_group")
@@ -1109,9 +1098,6 @@ def render_distance():
     st.subheader("Total distance travelled")
     sel = animal_selector("dist_animals")
     group_col = group_selector("dist_group")
-    pal_name = st.selectbox("Colour palette", _BAR_PALETTES, key="dist_palette",
-                            help="Bar colours by group. 'Grayscale' keeps the black & white look.")
-
     with loading("loading"):
         distances = pd.Series(
             [analysis.distance_travelled(v) for v in videos_for(sel)],
@@ -1124,8 +1110,10 @@ def render_distance():
     with col_fig:
         fig, ax = plt.subplots(figsize=(8, 5))
         if group_col:
-            colors, hatches = _bar_palette(pal_name, data[group_col].nunique())
-            bars = sns.barplot(data=data, x=group_col, y="distance", ax=ax, palette=colors)
+            order = list(pd.unique(data[group_col]))
+            colors, hatches = palette.colors_for(order)
+            bars = sns.barplot(data=data, x=group_col, y="distance", ax=ax,
+                               order=order, palette=colors)
             for patch, hatch in zip(bars.patches, hatches):
                 if hatch:
                     patch.set_hatch(hatch)
@@ -1159,8 +1147,7 @@ def render_heatmaps():
              "shape barely changes.")
     intensity = st.slider("Colour intensity", 0.1, 1.0, 0.45, 0.05,
                           help="Lower = lighter overlay so the arena stays visible.")
-    cmap = st.selectbox("Colour map", _HEAT_CMAPS, key="heat_cmap",
-                        help="Density colour scheme. 'Greys' keeps the black & white look.")
+    cmap = palette.heat_preset()  # from the consolidated Chart-colors control in the nav
 
     # Background is automatic: for "Arena frame" each group panel uses a representative
     # frame from that group's own first animal; "White" uses a plain canvas.
@@ -1210,8 +1197,6 @@ def render_zone():
     st.subheader("Time spent in a centred zone")
     sel = animal_selector("zone_animals")
     group_col = group_selector("zone_group")
-    pal_name = st.selectbox("Colour palette", _BAR_PALETTES, key="zone_palette",
-                            help="Bar colours by group. 'Grayscale' keeps the black & white look.")
 
     # The displayed reference frame and each video's mouse_df live in the SAME
     # coordinate space (both had the same config transform applied). So centre the
@@ -1258,8 +1243,10 @@ def render_zone():
         st.markdown("**Time in zone [s]**")
         fig, ax = plt.subplots(figsize=(7, 5))
         if group_col:
-            colors, hatches = _bar_palette(pal_name, data[group_col].nunique())
-            bars = sns.barplot(data=data, x=group_col, y="time_in_zone", ax=ax, palette=colors)
+            order = list(pd.unique(data[group_col]))
+            colors, hatches = palette.colors_for(order)
+            bars = sns.barplot(data=data, x=group_col, y="time_in_zone", ax=ax,
+                               order=order, palette=colors)
             for patch, hatch in zip(bars.patches, hatches):
                 if hatch:
                     patch.set_hatch(hatch)
@@ -1458,6 +1445,11 @@ elif phase == "app":
         view = st.radio("Views", VIEWS, key="app_view", label_visibility="collapsed")
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        _grp_labels = []
+        if group_cols and metadata is not None:
+            _dc = "injected_with" if "injected_with" in group_cols else group_cols[0]
+            _grp_labels = list(pd.Series(metadata[_dc]).dropna().astype(str).unique())
+        palette.controls(_grp_labels)
         if st.button("← Change data", key="app_change", use_container_width=True):
             for k in ("video_set", "config", "metadata"):
                 st.session_state.pop(k, None)
