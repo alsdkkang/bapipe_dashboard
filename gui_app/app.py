@@ -1023,50 +1023,85 @@ def _bar_palette(name, n):
 
 
 def render_overview():
-    st.subheader("Experiment summary")
     sel = animal_selector("ov_animals")
+    group_col = group_selector("ov_group")
     vids = videos_for(sel)
 
-    sizes = {(v.frame_width, v.frame_height) for v in vids}
-    durations = [v.duration for v in vids]
-    desc = pd.DataFrame(
-        [
-            ["Number of videos", len(vids)],
-            ["Video sizes (W,H)", ", ".join(f"{w}x{h}" for w, h in sizes)],
-            ["Total duration [s]", round(float(np.sum(durations)), 1)],
-            ["Average duration [s]", round(float(np.mean(durations)), 2) if durations else 0],
-        ],
-        columns=["Metric", "Value"],
-    )
-    desc["Value"] = desc["Value"].astype(str)  # mixed types -> str for Arrow
-    st.table(desc)
+    with loading("loading"):
+        dist = [analysis.distance_travelled(v) for v in vids]
+    per = pd.DataFrame({"distance": dist, "duration": [v.duration for v in vids]},
+                       index=pd.Index(sel, name="id"))
+    n_groups = None
+    if group_col and metadata is not None and group_col in metadata.columns:
+        per = per.join(metadata[[group_col]])
+        n_groups = int(per[group_col].nunique())
 
-    st.subheader("Original vs. aligned montage")
-    st.caption("Reads one frame per selected video — may take a moment.")
-    _sig = (tuple(sel), _cfg_sig())
-    if st.button("Build montage",
-                 help="Render a grid of one frame per selected video, before vs. after alignment."):
-        with loading("loading"):
-            try:
-                orig = bapipe.create_video_grid(
-                    vids,
-                    override_config={"use_box_reference": False, "remove_lens_distortion": False})
-                aligned = bapipe.create_video_grid(vids)
-                st.session_state["_montage"] = {
-                    "sig": _sig, "orig": np.clip(orig, 0, 1), "aligned": np.clip(aligned, 0, 1)}
-            except Exception as e:
-                st.session_state["_montage"] = {"sig": _sig, "error": str(e)}
-    # Persisted so it stays visible after other interactions rerun the app.
-    _m = st.session_state.get("_montage")
-    if _m and _m.get("sig") == _sig:
-        if _m.get("error"):
-            st.error(f"Couldn't build the montage: {_m['error']}")
+    # KPI tiles (single HTML block so the grid wrapper + tiles stay siblings).
+    tiles = (
+        theme.stat_tile("Animals", len(sel))
+        + theme.stat_tile("Groups", n_groups if n_groups is not None else "—")
+        + theme.stat_tile("Total distance", f"{per['distance'].mean():,.0f}", unit="avg/animal")
+        + theme.stat_tile("Avg recording", f"{per['duration'].mean():.0f}", unit="s")
+    )
+    st.markdown(f"<div class='kpi-grid'>{tiles}</div>", unsafe_allow_html=True)
+
+    # Main chart (indigo, reference-style) + animal-ranking side card.
+    col_chart, col_side = st.columns([2, 1], gap="large")
+    with col_chart:
+        st.markdown("<div class='eyebrow'>Locomotion</div>", unsafe_allow_html=True)
+        fig, ax = plt.subplots(figsize=(7, 4))
+        if group_col and n_groups:
+            gmean = per.groupby(group_col)["distance"].mean().sort_values(ascending=False)
+            ax.bar(gmean.index.astype(str), gmean.values, color="#4F46E5")
+            ax.set_xlabel("Group")
+            plt.setp(ax.get_xticklabels(), rotation=20, ha="right")
         else:
-            col1, col2 = st.columns(2)
-            col1.markdown("**Original**")
-            col1.image(_m["orig"], use_container_width=True)
-            col2.markdown("**Aligned**")
-            col2.image(_m["aligned"], use_container_width=True)
+            ax.bar(per.index.astype(str), per["distance"], color="#4F46E5")
+            ax.set_xlabel("Animal")
+        ax.set_ylabel("Distance travelled")
+        ax.spines[["top", "right"]].set_visible(False)
+        st.pyplot(fig)
+    with col_side:
+        st.markdown("<div class='eyebrow'>Animal ranking</div>", unsafe_allow_html=True)
+        rank = per["distance"].sort_values(ascending=False).round(0).astype(int)
+        st.dataframe(rank.to_frame("distance"), use_container_width=True, height=300)
+
+    # By-group summary card.
+    if group_col and n_groups:
+        st.markdown("<div class='eyebrow'>By group</div>", unsafe_allow_html=True)
+        gsum = (per.groupby(group_col)[["distance", "duration"]]
+                .agg(["mean", "count"]).round(1))
+        gsum.columns = ["distance (mean)", "n", "duration (mean)", "n "]
+        st.dataframe(gsum[["distance (mean)", "duration (mean)", "n"]],
+                     use_container_width=True)
+
+    # Alignment check (kept from the original overview), tucked into an expander.
+    with st.expander("Alignment check — original vs. aligned montage"):
+        st.caption("Reads one frame per selected video — may take a moment.")
+        _sig = (tuple(sel), _cfg_sig())
+        if st.button("Build montage",
+                     help="Render a grid of one frame per selected video, before vs. after alignment."):
+            with loading("loading"):
+                try:
+                    orig = bapipe.create_video_grid(
+                        vids,
+                        override_config={"use_box_reference": False, "remove_lens_distortion": False})
+                    aligned = bapipe.create_video_grid(vids)
+                    st.session_state["_montage"] = {
+                        "sig": _sig, "orig": np.clip(orig, 0, 1), "aligned": np.clip(aligned, 0, 1)}
+                except Exception as e:
+                    st.session_state["_montage"] = {"sig": _sig, "error": str(e)}
+        # Persisted so it stays visible after other interactions rerun the app.
+        _m = st.session_state.get("_montage")
+        if _m and _m.get("sig") == _sig:
+            if _m.get("error"):
+                st.error(f"Couldn't build the montage: {_m['error']}")
+            else:
+                col1, col2 = st.columns(2)
+                col1.markdown("**Original**")
+                col1.image(_m["orig"], use_container_width=True)
+                col2.markdown("**Aligned**")
+                col2.image(_m["aligned"], use_container_width=True)
 
 
 # ---- Distance ------------------------------------------------------------- #
