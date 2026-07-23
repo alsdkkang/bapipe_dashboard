@@ -191,7 +191,9 @@ def test_saved_record_shows_figures(tmp_path, monkeypatch):
     at.run()
     assert not at.exception
     md = [m.value for m in at.markdown]
-    assert any("Figures" in (t or "") for t in md)
+    # dashboard sections: each metric block renders its own heading (table + figures)
+    assert any("Per-animal results" in (t or "") for t in md)
+    assert any("Group summary" in (t or "") for t in md)
 
 
 def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
