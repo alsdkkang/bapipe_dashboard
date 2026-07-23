@@ -144,12 +144,18 @@ def annotate_clip(video, start, length, out_path, bodyparts=None):
 
     out_path = str(out_path)
     fps = video.fps if video.fps and video.fps > 0 else 30.0
-    end = start + length
+    # Clamp to the video's real length — reading past the last frame returns an
+    # empty array and crashes OpenCV's cvtColor (e.g. trimmed clips / overshooting
+    # start+length). The clip is simply shorter when the range exceeds the video.
+    start = max(0, min(int(start), max(0, video.frame_count - 1)))
+    end = min(start + int(length), video.frame_count)
 
     writer = imageio.get_writer(out_path, fps=fps, codec="libx264", format="FFMPEG")
     try:
         for i in range(start, end):
             frame = video.get_frame(i)  # RGB uint8
+            if frame is None or getattr(frame, "size", 0) == 0:
+                break
             draw_dataframe_points(
                 frame, video.mouse_df, i, bodyparts=bodyparts or []
             )

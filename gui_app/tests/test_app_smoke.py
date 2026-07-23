@@ -6,6 +6,7 @@ import pytest
 
 GUI_APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GUI_APP))
+sys.path.insert(0, str(GUI_APP.parent / "src"))  # so `import bapipe` works in tests
 APP = str(GUI_APP / "app.py")
 
 
@@ -141,6 +142,30 @@ def test_overview_shows_kpi_tiles(tmp_path, monkeypatch):
     md = [m.value for m in at.markdown]
     assert any("Animals" in (t or "") for t in md)
     assert any("Groups" in (t or "") for t in md)
+
+
+def test_annotate_clip_clamps_to_video_length(tmp_path):
+    import samples
+    import importlib
+    importlib.reload(samples)
+    if not samples.sample_available():
+        import pytest
+        pytest.skip("sample_data not bundled")
+    import pandas as pd
+    import bapipe
+    import analysis
+    df = pd.read_csv(samples.SAMPLE_DIR / "bapipe_datafiles.csv")
+    df = df[df["id"] == "f1"].reset_index(drop=True)
+    cfg = bapipe.AnalysisConfig(pcutoff=0.6, use_box_reference=True,
+                                remove_lens_distortion=True, box_shape=(400, 300))
+    vs = bapipe.VideoSet.load(df, cfg, root_dir=str(samples.SAMPLE_DIR),
+                              use_multiprocessing=False)
+    v = vs[0]
+    out = tmp_path / "clip.mp4"
+    # Start near the end with a length that overshoots the trimmed video: must
+    # clamp instead of reading empty frames (the OpenCV cvtColor crash).
+    analysis.annotate_clip(v, max(0, v.frame_count - 10), 100, out)
+    assert out.exists() and out.stat().st_size > 0
 
 
 def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
