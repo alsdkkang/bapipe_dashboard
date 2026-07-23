@@ -6,6 +6,7 @@ Point it at a bapipe `datafiles.csv` manifest, set a few options, click
 Run with:
     streamlit run gui_app/app.py
 """
+import base64
 import io
 import platform
 import subprocess
@@ -618,7 +619,10 @@ def autosave_current_load(sel_ids):
                    "remove_lens_distortion": cfg.remove_lens_distortion}
     name = f"{len(ids_present)} animals · {pd.Timestamp.now():%Y-%m-%d %H:%M}"
     rec = records.assemble_record(name, ids_present, cfg_summary, per, summary)
-    records.add_record(current_user_key(), rec)
+    stored = records.add_record(current_user_key(), rec)
+    # Remember which record this load maps to, so "Save to record" figure buttons
+    # in the analysis views attach images to it.
+    st.session_state["current_record_id"] = stored["id"]
 
 
 def group_selector(key):
@@ -682,6 +686,21 @@ def fig_export(fig, basename, key):
                 bbox_inches="tight", dpi=200, facecolor="white")
     c2.download_button(f"Download figure (.{fmt})", buf.getvalue(),
                        file_name=f"{basename}.{fmt}", mime=mimes[fmt], key=f"{key}_dl")
+
+
+def save_fig_button(fig, label, key):
+    """A 'Save to record' button that stores the figure image (PNG) in the current
+    load's saved-analysis record, so it can be viewed later under that analysis."""
+    rid = st.session_state.get("current_record_id")
+    if st.button("💾 Save to record", key=f"{key}_save", disabled=not rid,
+                 help="Store this figure in your saved analysis." if rid
+                 else "Available after loading an experiment."):
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=130, facecolor="white")
+        if records.add_figure(current_user_key(), rid, label, buf.getvalue()):
+            st.toast(f"Saved “{label}” to your analysis")
+        else:
+            st.toast("Couldn't find the record to save to")
 
 
 # --------------------------------------------------------------------------- #
@@ -1209,6 +1228,7 @@ def render_heatmaps():
                     ax.axis("off")
                     st.pyplot(fig)
                     fig_export(fig, f"heatmap_{name}".replace("/", "-"), f"heat_{i}")
+                    save_fig_button(fig, f"Heatmap — {name}", f"heat_{i}")
 
 
 # ---- Time in zone --------------------------------------------------------- #
@@ -1275,6 +1295,7 @@ def render_zone():
         ax.set_ylabel("Time in zone [s]")
         st.pyplot(fig)
         fig_export(fig, "time_in_zone", "zone_bar")
+        save_fig_button(fig, "Time in zone by group", "zone_bar")
     st.dataframe(data)
     st.download_button("Download CSV", data.to_csv().encode(), "time_in_zone.csv",
                        "text/csv", key="zone_csv")
@@ -1437,8 +1458,17 @@ def render_records():
                 st.caption("Distance by animal")
                 _saved_bar(per["distance"], per.get("id", per.index), "Animal",
                            "Distance", size=(8, 3.2))
-            st.caption("Heatmaps and validation clips aren't saved — reopen the "
-                       "experiment (New analysis / Load sample) to regenerate those.")
+
+            # Figure images the user explicitly saved (heatmaps, charts, …).
+            if rec.get("figures"):
+                st.markdown("<div class='eyebrow'>Saved figures</div>",
+                            unsafe_allow_html=True)
+                for _fig in rec["figures"]:
+                    st.caption(_fig.get("label", "figure"))
+                    st.image(base64.b64decode(_fig["png"]), use_container_width=True)
+            st.caption("Tip: in the analysis views, use “Save to record” to keep a "
+                       "heatmap or chart here. Validation clips aren't saved — they "
+                       "need the raw video.")
         return
 
     for rec in recs:

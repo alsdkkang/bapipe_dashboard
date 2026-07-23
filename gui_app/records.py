@@ -8,6 +8,7 @@ path lists another user's records.
 
 The store directory is overridable via the BAPIPE_RECORDS_DIR env var (tests).
 """
+import base64
 import hashlib
 import json
 import os
@@ -99,6 +100,23 @@ def get_record(email, rid):
         if r.get("id") == rid:
             return r
     return None
+
+
+def add_figure(email, rid, label, png_bytes) -> bool:
+    """Attach a rendered figure image (PNG) to a record, so it can be viewed later
+    in the saved analysis. Stored as base64 in the record's ``figures`` list —
+    a derived visualization, never raw video/pose. Returns True if the record was
+    found and updated."""
+    data = _load(email)
+    for r in data["records"]:
+        if r.get("id") == rid:
+            r.setdefault("figures", []).append({
+                "label": label,
+                "png": base64.b64encode(png_bytes).decode("ascii"),
+            })
+            _save(email, data)
+            return True
+    return False
 
 
 def delete_record(email, rid) -> None:
