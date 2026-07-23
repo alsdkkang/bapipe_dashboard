@@ -150,7 +150,8 @@ def annotate_clip(video, start, length, out_path, bodyparts=None):
     start = max(0, min(int(start), max(0, video.frame_count - 1)))
     end = min(start + int(length), video.frame_count)
 
-    writer = imageio.get_writer(out_path, fps=fps, codec="libx264", format="FFMPEG")
+    writer = imageio.get_writer(out_path, fps=fps, codec="libx264", format="FFMPEG",
+                                quality=8, pixelformat="yuv420p")
     try:
         for i in range(start, end):
             frame = video.get_frame(i)  # RGB uint8
