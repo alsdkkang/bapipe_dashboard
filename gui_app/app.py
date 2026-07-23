@@ -1416,56 +1416,93 @@ def render_records():
                 st.session_state.pop("open_record"); st.rerun()
             st.subheader(rec["name"])
             st.caption(f"Saved {rec['created']} · {len(rec['animals'])} animals")
-            per = pd.DataFrame(rec["results"]["per_animal"])
-            st.markdown("**Per-animal results**")
-            st.dataframe(per, use_container_width=True)
-            st.download_button("Download CSV", per.to_csv(index=False).encode(),
-                               f"{rec['id']}_per_animal.csv", "text/csv")
             import json as _json
-            st.download_button("Download JSON", _json.dumps(rec, indent=2).encode(),
-                               f"{rec['id']}.json", "application/json")
+            st.download_button("Download full record (.json)",
+                               _json.dumps(rec, indent=2).encode(),
+                               f"{rec['id']}.json", "application/json", key="rec_json")
+
+            per = pd.DataFrame(rec["results"]["per_animal"])
             gs = (pd.DataFrame(rec["results"]["group_summary"])
                   if rec["results"]["group_summary"] else None)
-            if gs is not None and len(gs):
-                st.markdown("**Group summary**")
-                st.dataframe(gs, use_container_width=True)
 
-            # Figures rebuilt from the stored numbers (bar charts only — heatmaps
-            # and the validation clip need the raw video, which is never saved).
-            st.markdown("<div class='eyebrow'>Figures</div>", unsafe_allow_html=True)
-
-            def _saved_bar(values, labels, xlabel, ylabel, size=(5, 3.2)):
+            def _bar_fig(values, labels, xlabel, ylabel, size=(5, 3.0)):
                 fig, ax = plt.subplots(figsize=size)
                 ax.bar([str(x) for x in labels], list(values), color="#4F46E5")
                 ax.set_xlabel(xlabel)
                 ax.set_ylabel(ylabel)
                 ax.spines[["top", "right"]].set_visible(False)
                 plt.setp(ax.get_xticklabels(), rotation=20, ha="right")
+                return fig
+
+            def _show_fig(fig, caption, basename, key):
+                st.caption(caption)
                 st.pyplot(fig)
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png", bbox_inches="tight", dpi=200,
+                            facecolor="white")
+                st.download_button("Download figure (.png)", buf.getvalue(),
+                                   file_name=f"{basename}.png", mime="image/png", key=key)
                 plt.close(fig)
 
-            if gs is not None and "group" in gs.columns:
-                fc1, fc2 = st.columns(2)
-                if "distance" in gs.columns:
-                    with fc1:
-                        st.caption("Distance by group")
-                        _saved_bar(gs["distance"], gs["group"], "Group", "Distance")
-                if "time_in_zone" in gs.columns:
-                    with fc2:
-                        st.caption("Time in zone by group")
-                        _saved_bar(gs["time_in_zone"], gs["group"], "Group", "Time in zone [s]")
-            if "distance" in per.columns:
-                st.caption("Distance by animal")
-                _saved_bar(per["distance"], per.get("id", per.index), "Animal",
-                           "Distance", size=(8, 3.2))
-
-            # Figure images the user explicitly saved (heatmaps, charts, …).
-            if rec.get("figures"):
-                st.markdown("<div class='eyebrow'>Saved figures</div>",
+            # ---- Per-animal: table then its figures --------------------------
+            with st.container(border=True):
+                st.markdown("<div class='eyebrow'>Per-animal results</div>",
                             unsafe_allow_html=True)
-                for _fig in rec["figures"]:
-                    st.caption(_fig.get("label", "figure"))
-                    st.image(base64.b64decode(_fig["png"]), use_container_width=True)
+                st.dataframe(per, use_container_width=True)
+                st.download_button("Download table (.csv)", per.to_csv(index=False).encode(),
+                                   f"{rec['id']}_per_animal.csv", "text/csv", key="per_csv")
+                labels = per["id"] if "id" in per.columns else per.index
+                pc1, pc2 = st.columns(2)
+                if "distance" in per.columns:
+                    with pc1:
+                        _show_fig(_bar_fig(per["distance"], labels, "Animal", "Distance"),
+                                  "Distance by animal", "distance_by_animal", "per_dist_dl")
+                if "time_in_zone" in per.columns:
+                    with pc2:
+                        _show_fig(_bar_fig(per["time_in_zone"], labels, "Animal",
+                                           "Time in zone [s]"),
+                                  "Time in zone by animal", "time_in_zone_by_animal",
+                                  "per_zone_dl")
+
+            # ---- Group summary: table then its figures ------------------------
+            if gs is not None and len(gs) and "group" in gs.columns:
+                with st.container(border=True):
+                    st.markdown("<div class='eyebrow'>Group summary</div>",
+                                unsafe_allow_html=True)
+                    st.dataframe(gs, use_container_width=True)
+                    st.download_button("Download table (.csv)", gs.to_csv(index=False).encode(),
+                                       f"{rec['id']}_group_summary.csv", "text/csv", key="gs_csv")
+                    gc1, gc2 = st.columns(2)
+                    if "distance" in gs.columns:
+                        with gc1:
+                            _show_fig(_bar_fig(gs["distance"], gs["group"], "Group", "Distance"),
+                                      "Distance by group", "distance_by_group", "gs_dist_dl")
+                    if "time_in_zone" in gs.columns:
+                        with gc2:
+                            _show_fig(_bar_fig(gs["time_in_zone"], gs["group"], "Group",
+                                               "Time in zone [s]"),
+                                      "Time in zone by group", "time_in_zone_by_group",
+                                      "gs_zone_dl")
+
+            # ---- Figures the user saved from the analysis views ---------------
+            if rec.get("figures"):
+                with st.container(border=True):
+                    st.markdown("<div class='eyebrow'>Saved figures</div>",
+                                unsafe_allow_html=True)
+                    figs = rec["figures"]
+                    for i in range(0, len(figs), 2):
+                        cols = st.columns(2)
+                        for j, (col, f) in enumerate(zip(cols, figs[i:i + 2])):
+                            with col:
+                                label = f.get("label", "figure")
+                                st.caption(label)
+                                png = base64.b64decode(f["png"])
+                                st.image(png, use_container_width=True)
+                                st.download_button(
+                                    "Download figure (.png)", png,
+                                    file_name=(f"{label}.png".replace("/", "-")
+                                               .replace(" ", "_")),
+                                    mime="image/png", key=f"savedfig_dl_{i + j}")
             st.caption("Tip: in the analysis views, use “Save to record” to keep a "
                        "heatmap or chart here. Validation clips aren't saved — they "
                        "need the raw video.")
