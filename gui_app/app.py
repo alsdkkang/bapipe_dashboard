@@ -1403,10 +1403,42 @@ def render_records():
             import json as _json
             st.download_button("Download JSON", _json.dumps(rec, indent=2).encode(),
                                f"{rec['id']}.json", "application/json")
-            if rec["results"]["group_summary"]:
+            gs = (pd.DataFrame(rec["results"]["group_summary"])
+                  if rec["results"]["group_summary"] else None)
+            if gs is not None and len(gs):
                 st.markdown("**Group summary**")
-                st.dataframe(pd.DataFrame(rec["results"]["group_summary"]),
-                             use_container_width=True)
+                st.dataframe(gs, use_container_width=True)
+
+            # Figures rebuilt from the stored numbers (bar charts only — heatmaps
+            # and the validation clip need the raw video, which is never saved).
+            st.markdown("<div class='eyebrow'>Figures</div>", unsafe_allow_html=True)
+
+            def _saved_bar(values, labels, xlabel, ylabel, size=(5, 3.2)):
+                fig, ax = plt.subplots(figsize=size)
+                ax.bar([str(x) for x in labels], list(values), color="#4F46E5")
+                ax.set_xlabel(xlabel)
+                ax.set_ylabel(ylabel)
+                ax.spines[["top", "right"]].set_visible(False)
+                plt.setp(ax.get_xticklabels(), rotation=20, ha="right")
+                st.pyplot(fig)
+                plt.close(fig)
+
+            if gs is not None and "group" in gs.columns:
+                fc1, fc2 = st.columns(2)
+                if "distance" in gs.columns:
+                    with fc1:
+                        st.caption("Distance by group")
+                        _saved_bar(gs["distance"], gs["group"], "Group", "Distance")
+                if "time_in_zone" in gs.columns:
+                    with fc2:
+                        st.caption("Time in zone by group")
+                        _saved_bar(gs["time_in_zone"], gs["group"], "Group", "Time in zone [s]")
+            if "distance" in per.columns:
+                st.caption("Distance by animal")
+                _saved_bar(per["distance"], per.get("id", per.index), "Animal",
+                           "Distance", size=(8, 3.2))
+            st.caption("Heatmaps and validation clips aren't saved — reopen the "
+                       "experiment (New analysis / Load sample) to regenerate those.")
         return
 
     for rec in recs:
