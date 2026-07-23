@@ -1444,6 +1444,24 @@ def render_records():
                                    file_name=f"{basename}.png", mime="image/png", key=key)
                 plt.close(fig)
 
+            # Charts the user explicitly saved take precedence — skip the auto
+            # version of the same chart so it isn't shown twice.
+            saved_labels = {f.get("label", "") for f in (rec.get("figures") or [])}
+            METRICS = [("distance", "Distance", "Distance"),
+                       ("time_in_zone", "Time in zone", "Time in zone [s]"),
+                       ("duration_s", "Duration", "Duration [s]")]
+
+            def _metric_charts(df, labels, xlabel, scope, keyp):
+                items = [(c, nice, ylab) for c, nice, ylab in METRICS
+                         if c in df.columns and f"{nice} by {scope}" not in saved_labels]
+                for i in range(0, len(items), 2):
+                    cols = st.columns(2)
+                    for col, (c, nice, ylab) in zip(cols, items[i:i + 2]):
+                        with col:
+                            _show_fig(_bar_fig(df[c], labels, xlabel, ylab),
+                                      f"{nice} by {scope}", f"{c}_by_{scope}",
+                                      f"{keyp}_{c}_dl")
+
             # ---- Per-animal: table then its figures --------------------------
             with st.container(border=True):
                 st.markdown("<div class='eyebrow'>Per-animal results</div>",
@@ -1451,18 +1469,8 @@ def render_records():
                 st.dataframe(per, use_container_width=True)
                 st.download_button("Download table (.csv)", per.to_csv(index=False).encode(),
                                    f"{rec['id']}_per_animal.csv", "text/csv", key="per_csv")
-                labels = per["id"] if "id" in per.columns else per.index
-                pc1, pc2 = st.columns(2)
-                if "distance" in per.columns:
-                    with pc1:
-                        _show_fig(_bar_fig(per["distance"], labels, "Animal", "Distance"),
-                                  "Distance by animal", "distance_by_animal", "per_dist_dl")
-                if "time_in_zone" in per.columns:
-                    with pc2:
-                        _show_fig(_bar_fig(per["time_in_zone"], labels, "Animal",
-                                           "Time in zone [s]"),
-                                  "Time in zone by animal", "time_in_zone_by_animal",
-                                  "per_zone_dl")
+                _metric_charts(per, per["id"] if "id" in per.columns else per.index,
+                               "Animal", "animal", "per")
 
             # ---- Group summary: table then its figures ------------------------
             if gs is not None and len(gs) and "group" in gs.columns:
@@ -1472,17 +1480,7 @@ def render_records():
                     st.dataframe(gs, use_container_width=True)
                     st.download_button("Download table (.csv)", gs.to_csv(index=False).encode(),
                                        f"{rec['id']}_group_summary.csv", "text/csv", key="gs_csv")
-                    gc1, gc2 = st.columns(2)
-                    if "distance" in gs.columns:
-                        with gc1:
-                            _show_fig(_bar_fig(gs["distance"], gs["group"], "Group", "Distance"),
-                                      "Distance by group", "distance_by_group", "gs_dist_dl")
-                    if "time_in_zone" in gs.columns:
-                        with gc2:
-                            _show_fig(_bar_fig(gs["time_in_zone"], gs["group"], "Group",
-                                               "Time in zone [s]"),
-                                      "Time in zone by group", "time_in_zone_by_group",
-                                      "gs_zone_dl")
+                    _metric_charts(gs, gs["group"], "Group", "group", "gs")
 
             # ---- Figures the user saved from the analysis views ---------------
             if rec.get("figures"):
@@ -1503,9 +1501,12 @@ def render_records():
                                     file_name=(f"{label}.png".replace("/", "-")
                                                .replace(" ", "_")),
                                     mime="image/png", key=f"savedfig_dl_{i + j}")
-            st.caption("Tip: in the analysis views, use “Save to record” to keep a "
-                       "heatmap or chart here. Validation clips aren't saved — they "
-                       "need the raw video.")
+            else:
+                st.info("No saved figures yet. Heatmaps can't be rebuilt from the "
+                        "stored numbers — open the experiment, go to **Heatmaps**, "
+                        "press **Compute heatmaps**, then **💾 Save to record** to "
+                        "keep them here. (Validation clips can't be saved — they "
+                        "need the raw video.)")
         return
 
     for rec in recs:
