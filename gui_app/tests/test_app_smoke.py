@@ -168,6 +168,32 @@ def test_annotate_clip_clamps_to_video_length(tmp_path):
     assert out.exists() and out.stat().st_size > 0
 
 
+def test_saved_record_shows_figures(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
+    import records as recmod
+    import importlib
+    importlib.reload(recmod)
+    rec = recmod.add_record("tester@example.com", {
+        "name": "seeded run", "animals": ["m1", "m2"],
+        "config": {"box_shape": [400, 300]},
+        "results": {
+            "per_animal": [
+                {"id": "m1", "distance": 1.0, "time_in_zone": 2.0, "duration_s": 30},
+                {"id": "m2", "distance": 3.0, "time_in_zone": 1.0, "duration_s": 30}],
+            "group_summary": [
+                {"group": "A", "distance": 1.0, "time_in_zone": 2.0, "duration_s": 30},
+                {"group": "B", "distance": 3.0, "time_in_zone": 1.0, "duration_s": 30}],
+        },
+    })
+    at = _fresh_apptest()
+    at.session_state["phase"] = "records"
+    at.session_state["open_record"] = rec["id"]
+    at.run()
+    assert not at.exception
+    md = [m.value for m in at.markdown]
+    assert any("Figures" in (t or "") for t in md)
+
+
 def test_records_dashboard_lists_seeded_record(tmp_path, monkeypatch):
     monkeypatch.setenv("BAPIPE_RECORDS_DIR", str(tmp_path))
     import records as recmod
