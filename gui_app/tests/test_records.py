@@ -73,6 +73,16 @@ def test_users_are_isolated(records):
     assert records.list_records("u2@x.com") == []
 
 
+def test_add_figure_attaches_png(records):
+    import base64
+    a = records.add_record("u@x.com", _rec())
+    assert records.add_figure("u@x.com", a["id"], "Heatmap — A", b"PNGDATA") is True
+    got = records.get_record("u@x.com", a["id"])
+    assert got["figures"][0]["label"] == "Heatmap — A"
+    assert base64.b64decode(got["figures"][0]["png"]) == b"PNGDATA"
+    assert records.add_figure("u@x.com", "missing-id", "x", b"y") is False  # unknown record
+
+
 def test_assemble_record_is_json_serialisable(records):
     import json as _json
     import pandas as pd
