@@ -1518,6 +1518,14 @@ elif phase == "app":
     all_ids = list(manifest_all["id"].astype(str)) if manifest_all is not None else list(video_set.index)
     loaded_ids = list(video_set.index)
 
+    # Make sure "Save to record" figure buttons have a record to attach to, even
+    # for experiments loaded before this ran at load time — resolve it once here.
+    if "current_record_id" not in st.session_state:
+        try:
+            autosave_current_load(loaded_ids)  # sets current_record_id (dedupes)
+        except Exception:
+            st.session_state["current_record_id"] = None
+
     VIEWS = ["Overview", "Distance", "Heatmaps", "Time in zone", "Validation video", "Results"]
     _view_fns = {"Overview": render_overview, "Distance": render_distance,
                  "Heatmaps": render_heatmaps, "Time in zone": render_zone,
