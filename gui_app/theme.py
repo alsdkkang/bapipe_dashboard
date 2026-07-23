@@ -85,6 +85,9 @@ h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
 .topbar .sub{ font-size:12px; color:var(--muted); }
 .avatar{ width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600; }
+/* Account chip: strip the markdown container's default spacing so the name row's
+   centre line matches the logout button (both 40px, column-centred). */
+[data-testid="stMarkdownContainer"]:has(.acct-chip){ margin:0; padding:0; }
 /* KPI tile row (Overview): responsive grid of stat tiles. */
 .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
   gap:12px; margin:4px 0 18px; }
