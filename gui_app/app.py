@@ -157,6 +157,11 @@ def group_like_columns(md):
             if not (pd.api.types.is_float_dtype(md[c]) or pd.api.types.is_bool_dtype(md[c]))]
 
 
+# Native file/folder dialogs only exist on a local macOS desktop — never on the
+# hosted (Linux, headless) server, where the Browse buttons would be dead.
+CAN_BROWSE = platform.system() == "Darwin"
+
+
 def _native_pick(mode):
     """Open a native macOS folder/file chooser and return a POSIX path (or None).
     LOCAL runs only — on a deployed/headless server there is no desktop to show a
@@ -762,6 +767,15 @@ def render_wizard():
         if st.session_state.pop("_wizard_bounced", False):
             st.info("Please choose your Video and DLC folders to continue.")
         st.subheader("Where is your experiment?")
+        if not CAN_BROWSE:
+            st.info("On the hosted demo you can't browse the server's files, and "
+                    "uploading your own data is coming later. Load the bundled "
+                    "sample instead:")
+            if st.button("Load sample experiment", type="primary", key="wiz_sample"):
+                for _k in ("video_set", "config", "metadata"):
+                    st.session_state.pop(_k, None)
+                samples.prime_sample()
+                go("loading")
         # Widget keys are seeded from the canonical values and mirrored back after,
         # so the selection survives when these widgets aren't rendered on later steps.
         st.session_state.setdefault("w_video", video_dir)
@@ -773,13 +787,15 @@ def render_wizard():
         v1.text_input("Video folder", key="w_video",
                       help="Folder containing your .mp4 videos (one per animal).")
         v2.button("Browse…", key="browse_video", on_click=_pick_video_dir,
-                  use_container_width=True, help="Open a folder chooser (local use only).")
+                  use_container_width=True, disabled=not CAN_BROWSE,
+                  help="Open a folder chooser (local use only).")
         h1, h2 = st.columns([4, 1], vertical_alignment="bottom")
         h1.text_input("DLC keypoints folder (.h5)", key="w_dlc",
                       help="Folder with the DeepLabCut .h5 output for each video "
                            "(matched to videos by filename).")
         h2.button("Browse…", key="browse_dlc", on_click=_pick_dlc_dir,
-                  use_container_width=True, help="Open a folder chooser (local use only).")
+                  use_container_width=True, disabled=not CAN_BROWSE,
+                  help="Open a folder chooser (local use only).")
         l1, l2 = st.columns([4, 1], vertical_alignment="bottom")
         l1.text_input("Landmark folder (.h5, optional)", key="w_land",
                       help="Folder with per-video arena-corner .h5 files "
@@ -787,14 +803,16 @@ def render_wizard():
                            "accurate than auto-detecting corners. Leave blank to set "
                            "corners in the next steps.")
         l2.button("Browse…", key="browse_land", on_click=_pick_landmark_dir,
-                  use_container_width=True, help="Open a folder chooser (local use only).")
+                  use_container_width=True, disabled=not CAN_BROWSE,
+                  help="Open a folder chooser (local use only).")
         cb1, cb2 = st.columns([4, 1], vertical_alignment="bottom")
         cb1.text_input("Camera calibration (.json)", key="w_calib",
                        help="Camera calibration JSON (camera_matrix + distortion_"
                             "coefficients). When given, lens-distortion correction is "
                             "applied automatically to every video. Leave blank to skip.")
         cb2.button("Browse…", key="browse_calib", on_click=_pick_calib_file,
-                   use_container_width=True, help="Open a file chooser (local use only).")
+                   use_container_width=True, disabled=not CAN_BROWSE,
+                   help="Open a file chooser (local use only).")
         st.session_state["data_video_dir"] = st.session_state["w_video"]
         st.session_state["data_dlc_dir"] = st.session_state["w_dlc"]
         st.session_state["data_landmark_dir"] = st.session_state["w_land"]
@@ -818,7 +836,8 @@ def render_wizard():
                       help="One row per animal with group columns (treatment, sex, "
                            "cohort, …) so results can be compared across groups.")
         m2.button("Browse…", key="browse_meta", on_click=_pick_meta_csv,
-                  use_container_width=True, help="Open a file chooser (local use only).")
+                  use_container_width=True, disabled=not CAN_BROWSE,
+                  help="Open a file chooser (local use only).")
         st.session_state["data_meta_path"] = st.session_state["w_meta"]
         # Join column: once a metadata CSV is chosen, offer its columns as a dropdown.
         _meta_cols = _metadata_columns(st.session_state["w_meta"])
