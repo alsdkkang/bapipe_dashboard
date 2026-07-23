@@ -322,12 +322,12 @@ def header_account():
         return
     who = name or email
     initial = (who[:1] or "?").upper()
-    cc1, cc2 = st.columns([2, 1], vertical_alignment="center")
+    cc1, cc2 = st.columns([3, 1], vertical_alignment="center")
     cc1.markdown(
         f"<div style='display:flex;align-items:center;justify-content:flex-end;"
-        f"height:38px;gap:6px'>"
+        f"min-height:40px;gap:6px'>"
         f"<span class='avatar' style='display:inline-flex'>{html.escape(initial)}</span>"
         f"<span style='color:var(--muted)'>{html.escape(who)}</span></div>",
         unsafe_allow_html=True,
     )
-    cc2.button("logout", on_click=_logout, key="hdr_logout")
+    cc2.button("logout", on_click=_logout, key="hdr_logout", use_container_width=True)
