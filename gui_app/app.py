@@ -1211,14 +1211,15 @@ def render_heatmaps():
 
     if not items:
         st.info("No selected animals match the metadata groups.")
-    elif st.button("Compute heatmaps",
-                   help="Estimate and draw the occupancy density for each group (can take a moment)."):
-        cols = st.columns(min(len(items), 3) or 1)
-        with loading("loading"):
-            for i, (name, ids) in enumerate(items):
-                z = analysis.occupancy_kde(videos_for(ids), box_shape, downsample=downsample)
-                with cols[i % len(cols)]:
-                    st.markdown(f"**{name}**")
+    else:
+        _hm_sig = (tuple(sel), str(group_col), levels, downsample, intensity, cmap,
+                   bg_mode, _cfg_sig())
+        if st.button("Compute heatmaps",
+                     help="Estimate and draw the occupancy density for each group (can take a moment)."):
+            panels = []
+            with loading("loading"):
+                for name, ids in items:
+                    z = analysis.occupancy_kde(videos_for(ids), box_shape, downsample=downsample)
                     fig, ax = plt.subplots()
                     ax.imshow(group_background(ids))
                     if z is not None:
@@ -1226,9 +1227,36 @@ def render_heatmaps():
                         cbar = fig.colorbar(cs, ax=ax, fraction=0.046, pad=0.04)
                         cbar.set_label("Occupancy density\n(more intense = more time spent)")
                     ax.axis("off")
-                    st.pyplot(fig)
-                    fig_export(fig, f"heatmap_{name}".replace("/", "-"), f"heat_{i}")
-                    save_fig_button(fig, f"Heatmap — {name}", f"heat_{i}")
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format="png", bbox_inches="tight", dpi=150,
+                                facecolor="white")
+                    panels.append({"name": str(name), "png": buf.getvalue()})
+                    plt.close(fig)
+            # Persist: a button click reruns the script, and the panels must
+            # survive it (otherwise "save" would have nothing to save).
+            st.session_state["_heatmaps"] = {"sig": _hm_sig, "panels": panels}
+
+        _hm = st.session_state.get("_heatmaps")
+        if _hm and _hm.get("sig") == _hm_sig:
+            panels = _hm["panels"]
+            cols = st.columns(min(len(panels), 3) or 1)
+            for i, p in enumerate(panels):
+                with cols[i % len(cols)]:
+                    st.markdown(f"**{p['name']}**")
+                    st.image(p["png"], use_container_width=True)
+                    st.download_button(
+                        "Download figure (.png)", p["png"],
+                        file_name=f"heatmap_{p['name']}.png".replace("/", "-"),
+                        mime="image/png", key=f"heat_dl_{i}")
+            rid = st.session_state.get("current_record_id")
+            if st.button(f"💾 Save all heatmaps to record ({len(panels)})",
+                         key="heat_save_all", disabled=not rid,
+                         help="Store every heatmap panel in your saved analysis."
+                         if rid else "Available after loading an experiment."):
+                saved = sum(bool(records.add_figure(current_user_key(), rid,
+                                                    f"Heatmap — {p['name']}", p["png"]))
+                            for p in panels)
+                st.toast(f"Saved {saved} heatmap(s) to your analysis")
 
 
 # ---- Time in zone --------------------------------------------------------- #
@@ -1448,8 +1476,7 @@ def render_records():
             # version of the same chart so it isn't shown twice.
             saved_labels = {f.get("label", "") for f in (rec.get("figures") or [])}
             METRICS = [("distance", "Distance", "Distance"),
-                       ("time_in_zone", "Time in zone", "Time in zone [s]"),
-                       ("duration_s", "Duration", "Duration [s]")]
+                       ("time_in_zone", "Time in zone", "Time in zone [s]")]
 
             def _metric_charts(df, labels, xlabel, scope, keyp):
                 items = [(c, nice, ylab) for c, nice, ylab in METRICS
