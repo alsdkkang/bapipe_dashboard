@@ -1359,7 +1359,7 @@ def render_results():
 
 
 def render_records():
-    render_top_bar("Dashboard", "Your saved analyses", logo=LOGO_PATH)
+    render_top_bar("Dashboard", "", logo=LOGO_PATH)
     auth.admin_panel()
     a1, a2, a3, _ = st.columns([1, 1.3, 1.6, 6], gap="small")
     if a1.button("Guide", use_container_width=True):
@@ -1377,6 +1377,8 @@ def render_records():
         samples.prime_sample()
         go("loading")
 
+    st.markdown("<h4 style='margin:22px 0 6px;color:var(--ink)'>Your saved analyses</h4>",
+                unsafe_allow_html=True)
     recs = records.list_records(current_user_key())
     if not recs:
         st.markdown(
