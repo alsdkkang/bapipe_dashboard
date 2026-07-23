@@ -324,8 +324,8 @@ def header_account():
     initial = (who[:1] or "?").upper()
     cc1, cc2 = st.columns([3, 1], vertical_alignment="center")
     cc1.markdown(
-        f"<div style='display:flex;align-items:center;justify-content:flex-end;"
-        f"min-height:40px;gap:6px'>"
+        f"<div class='acct-chip' style='display:flex;align-items:center;"
+        f"justify-content:flex-end;height:40px;gap:6px'>"
         f"<span class='avatar' style='display:inline-flex'>{html.escape(initial)}</span>"
         f"<span style='color:var(--muted)'>{html.escape(who)}</span></div>",
         unsafe_allow_html=True,
