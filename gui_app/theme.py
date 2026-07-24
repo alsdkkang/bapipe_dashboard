@@ -84,12 +84,16 @@ h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
 .stat-tile .value{ font-family:var(--font-mono); font-size:30px; font-weight:600; color:var(--ink); line-height:1.1; }
 .stat-tile .unit{ font-family:var(--font-mono); font-size:14px; color:var(--muted); margin-left:4px; }
 .stat-tile .note{ font-size:12px; color:var(--faint); margin-top:2px; }
-/* Global brand: logo + app title, clickable (returns to the home screen). */
-.brand{ display:flex; align-items:center; gap:14px; text-decoration:none !important; }
-.brand .brand-logo{ height:52px; width:auto; }
-.brand .brand-title{ font-size:20px; font-weight:700; color:var(--ink);
-  letter-spacing:-0.02em; line-height:1.15; }
-.brand:hover .brand-title{ color:var(--accent); }
+/* Global brand: a borderless button styled as the title, with the logo painted
+   as its background so logo + title are one clickable target. A real button (not
+   a link) keeps the Streamlit session — a link would reload and log the user out. */
+.st-key-brand_home button{
+  background:transparent !important; border:none !important; box-shadow:none !important;
+  padding:0 !important; justify-content:flex-start !important;
+  color:var(--ink) !important; font-size:20px !important; font-weight:700 !important;
+  letter-spacing:-0.02em; }
+.st-key-brand_home button:hover{ color:var(--accent) !important; background:transparent !important; }
+.st-key-brand_home button p{ font-size:20px !important; font-weight:700 !important; }
 .header-rule{ border:0; border-top:1px solid var(--border); margin:6px 0 18px; }
 .topbar{ display:flex; align-items:center; gap:14px; padding:10px 0 12px; border-bottom:1px solid var(--border); margin-bottom:18px; }
 .topbar .title{ font-size:20px; font-weight:700; color:var(--ink); }

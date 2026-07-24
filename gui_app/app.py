@@ -1020,16 +1020,22 @@ def render_header():
     post-login home screen (handled by the ?home= query param below)."""
     c1, c2 = st.columns([2, 1], vertical_alignment="center")
     with c1:
-        logo_html = ""
         if LOGO_PATH and Path(LOGO_PATH).exists():
             mime = "image/svg+xml" if str(LOGO_PATH).endswith(".svg") else "image/png"
             b64 = base64.b64encode(Path(LOGO_PATH).read_bytes()).decode()
-            logo_html = f"<img src='data:{mime};base64,{b64}' class='brand-logo'/>"
-        st.markdown(
-            f"<a href='?home=1' target='_self' class='brand' "
-            f"title='Back to home'>{logo_html}"
-            f"<span class='brand-title'>Animal Behaviour Analysis</span></a>",
-            unsafe_allow_html=True)
+            # Paint the logo into the button so logo + title are one click target.
+            st.markdown(
+                f"<style>.st-key-brand_home button{{"
+                f"background:transparent url('data:{mime};base64,{b64}') "
+                f"no-repeat left center !important;"
+                f"background-size:auto 50px !important;"
+                f"padding-left:64px !important; min-height:58px !important;}}</style>",
+                unsafe_allow_html=True)
+        if st.button("Animal Behaviour Analysis", key="brand_home",
+                     help="Back to home"):
+            st.session_state.pop("phase", None)
+            st.session_state.pop("open_record", None)
+            st.rerun()
     with c2:
         auth.header_account()
     st.markdown("<hr class='header-rule'>", unsafe_allow_html=True)
@@ -1539,13 +1545,6 @@ def render_records():
 
 
 # ---- phase router ----
-# Clicking the brand adds ?home=1 — drop the explicit phase so the router falls
-# back to the post-login home screen (and close any open record).
-if st.query_params.get("home"):
-    st.query_params.clear()
-    st.session_state.pop("phase", None)
-    st.session_state.pop("open_record", None)
-
 render_header()  # brand + account, on every screen
 
 user_key = current_user_key()
