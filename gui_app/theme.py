@@ -42,6 +42,8 @@ CSS = """
 }
 html, body, [class*="css"]{ font-family:var(--font-sans); color:var(--body); }
 .stApp{ background:var(--canvas); }
+/* Streamlit pads the main block generously at the top; pull the header up. */
+.block-container, [data-testid="stMainBlockContainer"]{ padding-top:2rem !important; }
 /* hide the sidebar entirely (turned off for this redesign) */
 section[data-testid="stSidebar"]{ display:none !important; }
 div[data-testid="collapsedControl"]{ display:none !important; }
@@ -94,7 +96,10 @@ h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
   letter-spacing:-0.02em; }
 .st-key-brand_home button:hover{ color:var(--accent) !important; background:transparent !important; }
 .st-key-brand_home button p{ font-size:20px !important; font-weight:700 !important; }
-.header-rule{ border:0; border-top:1px solid var(--border); margin:6px 0 18px; }
+/* Sits in its own Streamlit block (which adds its own gap) — keep the rule's own
+   margins tight so the divider hugs the header row. */
+.header-rule{ border:0; border-top:1px solid var(--border); margin:0 0 10px; }
+[data-testid="stMarkdownContainer"]:has(.header-rule){ margin:0; padding:0; }
 .topbar{ display:flex; align-items:center; gap:14px; padding:10px 0 12px; border-bottom:1px solid var(--border); margin-bottom:18px; }
 .topbar .title{ font-size:20px; font-weight:700; color:var(--ink); }
 .topbar .sub{ font-size:12px; color:var(--muted); }
