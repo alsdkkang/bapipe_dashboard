@@ -1029,7 +1029,7 @@ def render_header():
                 f"background:transparent url('data:{mime};base64,{b64}') "
                 f"no-repeat left center !important;"
                 f"background-size:auto 50px !important;"
-                f"padding-left:64px !important; min-height:58px !important;}}</style>",
+                f"padding-left:112px !important; min-height:58px !important;}}</style>",
                 unsafe_allow_html=True)
         if st.button("Animal Behaviour Analysis", key="brand_home",
                      help="Back to home"):
@@ -1533,14 +1533,17 @@ def render_records():
 
     for rec in recs:
         with st.container(border=True):
-            c1, c2, c3, c4 = st.columns([4, 2, 1, 1])
+            # Wide text columns push the two actions to the right edge; narrow
+            # equal columns + full width keep them side by side.
+            c1, c2, c3, c4 = st.columns([6, 4, 1.1, 1.1], gap="small",
+                                        vertical_alignment="center")
             c1.markdown(f"**{rec['name']}**")
             c1.caption(f"Saved {rec['created']}")
             c2.caption(f"{len(rec['animals'])} animals · "
                        f"box {rec['config'].get('box_shape')}")
-            if c3.button("Open", key=f"open_{rec['id']}"):
+            if c3.button("Open", key=f"open_{rec['id']}", use_container_width=True):
                 st.session_state["open_record"] = rec["id"]; st.rerun()
-            if c4.button("Delete", key=f"del_{rec['id']}"):
+            if c4.button("Delete", key=f"del_{rec['id']}", use_container_width=True):
                 records.delete_record(current_user_key(), rec["id"]); st.rerun()
 
 
