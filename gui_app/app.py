@@ -1014,23 +1014,25 @@ def render_loading():
     go("app")
 
 
-def render_top_bar(title, sub, logo=None):
+def render_header():
+    """Global top bar shown on every screen: the brand (logo + app title) on the
+    left, the account chip on the right. The brand is a link back to the
+    post-login home screen (handled by the ?home= query param below)."""
     c1, c2 = st.columns([2, 1], vertical_alignment="center")
     with c1:
-        if logo and Path(logo).exists():
-            lg1, lg2 = st.columns([1, 5], vertical_alignment="center")
-            with lg1:
-                if str(logo).endswith(".svg"):
-                    st.image(Path(logo).read_text(), width=72)
-                else:
-                    st.image(str(logo), width=72)
-            lg2.markdown(f"<div class='topbar'><div><div class='sub'>{sub}</div>"
-                         f"</div></div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='topbar'><div><div class='title'>{title}</div>"
-                        f"<div class='sub'>{sub}</div></div></div>", unsafe_allow_html=True)
+        logo_html = ""
+        if LOGO_PATH and Path(LOGO_PATH).exists():
+            mime = "image/svg+xml" if str(LOGO_PATH).endswith(".svg") else "image/png"
+            b64 = base64.b64encode(Path(LOGO_PATH).read_bytes()).decode()
+            logo_html = f"<img src='data:{mime};base64,{b64}' class='brand-logo'/>"
+        st.markdown(
+            f"<a href='?home=1' target='_self' class='brand' "
+            f"title='Back to home'>{logo_html}"
+            f"<span class='brand-title'>Animal Behaviour Analysis</span></a>",
+            unsafe_allow_html=True)
     with c2:
         auth.header_account()
+    st.markdown("<hr class='header-rule'>", unsafe_allow_html=True)
 
 
 # ---- Overview ------------------------------------------------------------- #
@@ -1392,7 +1394,6 @@ def render_results():
 
 
 def render_records():
-    render_top_bar("Dashboard", "", logo=LOGO_PATH)
     auth.admin_panel()
     a1, a2, a3, _ = st.columns([1, 1.3, 1.6, 6], gap="small")
     if a1.button("Guide", use_container_width=True):
@@ -1538,6 +1539,15 @@ def render_records():
 
 
 # ---- phase router ----
+# Clicking the brand adds ?home=1 — drop the explicit phase so the router falls
+# back to the post-login home screen (and close any open record).
+if st.query_params.get("home"):
+    st.query_params.clear()
+    st.session_state.pop("phase", None)
+    st.session_state.pop("open_record", None)
+
+render_header()  # brand + account, on every screen
+
 user_key = current_user_key()
 phase = routing.resolve_phase(records.is_onboarded(user_key),
                               st.session_state.get("phase"))
@@ -1560,7 +1570,6 @@ elif phase == "records":
 elif phase == "app":
     if "video_set" not in st.session_state:
         go("wizard")
-    render_top_bar("Analysis", "Explore your loaded experiment")
     video_set = st.session_state["video_set"]
     config = st.session_state["config"]
     metadata = st.session_state["metadata"]

@@ -84,6 +84,13 @@ h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
 .stat-tile .value{ font-family:var(--font-mono); font-size:30px; font-weight:600; color:var(--ink); line-height:1.1; }
 .stat-tile .unit{ font-family:var(--font-mono); font-size:14px; color:var(--muted); margin-left:4px; }
 .stat-tile .note{ font-size:12px; color:var(--faint); margin-top:2px; }
+/* Global brand: logo + app title, clickable (returns to the home screen). */
+.brand{ display:flex; align-items:center; gap:14px; text-decoration:none !important; }
+.brand .brand-logo{ height:52px; width:auto; }
+.brand .brand-title{ font-size:20px; font-weight:700; color:var(--ink);
+  letter-spacing:-0.02em; line-height:1.15; }
+.brand:hover .brand-title{ color:var(--accent); }
+.header-rule{ border:0; border-top:1px solid var(--border); margin:6px 0 18px; }
 .topbar{ display:flex; align-items:center; gap:14px; padding:10px 0 12px; border-bottom:1px solid var(--border); margin-bottom:18px; }
 .topbar .title{ font-size:20px; font-weight:700; color:var(--ink); }
 .topbar .sub{ font-size:12px; color:var(--muted); }
