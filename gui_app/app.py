@@ -1453,7 +1453,9 @@ def render_records():
             gs = (pd.DataFrame(rec["results"]["group_summary"])
                   if rec["results"]["group_summary"] else None)
 
-            def _bar_fig(values, labels, xlabel, ylabel, size=(5, 3.0)):
+            GRID = 3  # figures per row (smaller charts than a 2-up layout)
+
+            def _bar_fig(values, labels, xlabel, ylabel, size=(4, 2.7)):
                 fig, ax = plt.subplots(figsize=size)
                 ax.bar([str(x) for x in labels], list(values), color="#4F46E5")
                 ax.set_xlabel(xlabel)
@@ -1481,9 +1483,9 @@ def render_records():
             def _metric_charts(df, labels, xlabel, scope, keyp):
                 items = [(c, nice, ylab) for c, nice, ylab in METRICS
                          if c in df.columns and f"{nice} by {scope}" not in saved_labels]
-                for i in range(0, len(items), 2):
-                    cols = st.columns(2)
-                    for col, (c, nice, ylab) in zip(cols, items[i:i + 2]):
+                for i in range(0, len(items), GRID):
+                    cols = st.columns(GRID)
+                    for col, (c, nice, ylab) in zip(cols, items[i:i + GRID]):
                         with col:
                             _show_fig(_bar_fig(df[c], labels, xlabel, ylab),
                                       f"{nice} by {scope}", f"{c}_by_{scope}",
@@ -1515,9 +1517,9 @@ def render_records():
                     st.markdown("<div class='eyebrow'>Saved figures</div>",
                                 unsafe_allow_html=True)
                     figs = rec["figures"]
-                    for i in range(0, len(figs), 2):
-                        cols = st.columns(2)
-                        for j, (col, f) in enumerate(zip(cols, figs[i:i + 2])):
+                    for i in range(0, len(figs), GRID):
+                        cols = st.columns(GRID)
+                        for j, (col, f) in enumerate(zip(cols, figs[i:i + GRID])):
                             with col:
                                 label = f.get("label", "figure")
                                 st.caption(label)
