@@ -688,21 +688,6 @@ def fig_export(fig, basename, key):
                        file_name=f"{basename}.{fmt}", mime=mimes[fmt], key=f"{key}_dl")
 
 
-def save_fig_button(fig, label, key):
-    """A 'Save to record' button that stores the figure image (PNG) in the current
-    load's saved-analysis record, so it can be viewed later under that analysis."""
-    rid = st.session_state.get("current_record_id")
-    if st.button("💾 Save to record", key=f"{key}_save", disabled=not rid,
-                 help="Store this figure in your saved analysis." if rid
-                 else "Available after loading an experiment."):
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight", dpi=130, facecolor="white")
-        if records.add_figure(current_user_key(), rid, label, buf.getvalue()):
-            st.toast(f"Saved “{label}” to your analysis")
-        else:
-            st.toast("Couldn't find the record to save to")
-
-
 # --------------------------------------------------------------------------- #
 # Phase router — Welcome / Guide / Wizard / Loading / My Records / App
 # --------------------------------------------------------------------------- #
@@ -1323,7 +1308,6 @@ def render_zone():
         ax.set_ylabel("Time in zone [s]")
         st.pyplot(fig)
         fig_export(fig, "time_in_zone", "zone_bar")
-        save_fig_button(fig, "Time in zone by group", "zone_bar")
     st.dataframe(data)
     st.download_button("Download CSV", data.to_csv().encode(), "time_in_zone.csv",
                        "text/csv", key="zone_csv")
@@ -1474,15 +1458,15 @@ def render_records():
                                    file_name=f"{basename}.png", mime="image/png", key=key)
                 plt.close(fig)
 
-            # Charts the user explicitly saved take precedence — skip the auto
-            # version of the same chart so it isn't shown twice.
-            saved_labels = {f.get("label", "") for f in (rec.get("figures") or [])}
+            # Metric charts are always rebuilt from the stored numbers so they stay
+            # side by side in one consistent (indigo) style. Only heatmaps — which
+            # can't be rebuilt — come from the saved images below.
             METRICS = [("distance", "Distance", "Distance"),
                        ("time_in_zone", "Time in zone", "Time in zone [s]")]
 
             def _metric_charts(df, labels, xlabel, scope, keyp):
                 items = [(c, nice, ylab) for c, nice, ylab in METRICS
-                         if c in df.columns and f"{nice} by {scope}" not in saved_labels]
+                         if c in df.columns]
                 for i in range(0, len(items), GRID):
                     cols = st.columns(GRID)
                     for col, (c, nice, ylab) in zip(cols, items[i:i + GRID]):
@@ -1511,31 +1495,33 @@ def render_records():
                                        f"{rec['id']}_group_summary.csv", "text/csv", key="gs_csv")
                     _metric_charts(gs, gs["group"], "Group", "group", "gs")
 
-            # ---- Figures the user saved from the analysis views ---------------
-            if rec.get("figures"):
+            # ---- Heatmaps: the only figures that can't be rebuilt from numbers -
+            heatmaps = [f for f in (rec.get("figures") or [])
+                        if str(f.get("label", "")).startswith("Heatmap")]
+            if heatmaps:
                 with st.container(border=True):
-                    st.markdown("<div class='eyebrow'>Saved figures</div>",
+                    st.markdown("<div class='eyebrow'>Heatmap by group</div>",
                                 unsafe_allow_html=True)
-                    figs = rec["figures"]
-                    for i in range(0, len(figs), GRID):
+                    for i in range(0, len(heatmaps), GRID):
                         cols = st.columns(GRID)
-                        for j, (col, f) in enumerate(zip(cols, figs[i:i + GRID])):
+                        for j, (col, f) in enumerate(zip(cols, heatmaps[i:i + GRID])):
                             with col:
-                                label = f.get("label", "figure")
-                                st.caption(label)
+                                label = str(f.get("label", "figure"))
+                                group = label.split("—", 1)[-1].strip() or label
+                                st.caption(group)
                                 png = base64.b64decode(f["png"])
                                 st.image(png, use_container_width=True)
                                 st.download_button(
                                     "Download figure (.png)", png,
-                                    file_name=(f"{label}.png".replace("/", "-")
+                                    file_name=(f"heatmap_{group}.png".replace("/", "-")
                                                .replace(" ", "_")),
                                     mime="image/png", key=f"savedfig_dl_{i + j}")
             else:
-                st.info("No saved figures yet. Heatmaps can't be rebuilt from the "
-                        "stored numbers — open the experiment, go to **Heatmaps**, "
-                        "press **Compute heatmaps**, then **💾 Save to record** to "
-                        "keep them here. (Validation clips can't be saved — they "
-                        "need the raw video.)")
+                st.info("No heatmaps saved yet — they can't be rebuilt from the "
+                        "stored numbers. Open the experiment, go to **Heatmaps**, "
+                        "press **Compute heatmaps**, then **💾 Save all heatmaps to "
+                        "record**. (Validation clips can't be saved — they need the "
+                        "raw video.)")
         return
 
     for rec in recs:
