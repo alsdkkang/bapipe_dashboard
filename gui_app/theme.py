@@ -72,6 +72,10 @@ button[data-baseweb="tab"][aria-selected="true"]{ color:var(--ink); box-shadow:i
 h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
 .mono{ font-family:var(--font-mono); }
 .eyebrow{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+/* Section header inside a card (bigger than the .eyebrow kicker, so blocks read
+   as distinct sections). */
+.section-title{ font-size:18px; font-weight:700; color:var(--ink);
+  letter-spacing:-0.01em; margin:2px 0 12px; }
 .bw-card{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
   box-shadow:0 1px 2px rgba(0,0,0,.06); padding:16px; margin-bottom:16px; }
 .bw-card h4{ margin:0 0 8px 0; font-size:15px; }

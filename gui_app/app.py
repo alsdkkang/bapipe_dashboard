@@ -1477,7 +1477,7 @@ def render_records():
 
             # ---- Per-animal: table then its figures --------------------------
             with st.container(border=True):
-                st.markdown("<div class='eyebrow'>Per-animal results</div>",
+                st.markdown("<div class='section-title'>Per-animal results</div>",
                             unsafe_allow_html=True)
                 st.dataframe(per, use_container_width=True)
                 st.download_button("Download table (.csv)", per.to_csv(index=False).encode(),
@@ -1488,7 +1488,7 @@ def render_records():
             # ---- Group summary: table then its figures ------------------------
             if gs is not None and len(gs) and "group" in gs.columns:
                 with st.container(border=True):
-                    st.markdown("<div class='eyebrow'>Group summary</div>",
+                    st.markdown("<div class='section-title'>Group summary</div>",
                                 unsafe_allow_html=True)
                     st.dataframe(gs, use_container_width=True)
                     st.download_button("Download table (.csv)", gs.to_csv(index=False).encode(),
@@ -1500,7 +1500,7 @@ def render_records():
                         if str(f.get("label", "")).startswith("Heatmap")]
             if heatmaps:
                 with st.container(border=True):
-                    st.markdown("<div class='eyebrow'>Heatmap by group</div>",
+                    st.markdown("<div class='section-title'>Heatmap by group</div>",
                                 unsafe_allow_html=True)
                     for i in range(0, len(heatmaps), GRID):
                         cols = st.columns(GRID)
