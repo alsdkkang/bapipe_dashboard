@@ -21,6 +21,14 @@ def test_colored_preset_returns_n_hex():
     assert hatches == ["", ""]
 
 
+def test_publication_preset_uses_exact_hexes():
+    colors, hatches = palette.colors_for(["a", "b", "c"], preset="Okabe-Ito", overrides={})
+    assert colors == ["#E69F00", "#56B4E9", "#009E73"]
+    assert hatches == ["", "", ""]
+    # available in the selectable presets
+    assert "Okabe-Ito" in palette.BAR_PRESETS and "Tol Bright" in palette.BAR_PRESETS
+
+
 def test_override_replaces_that_group_only():
     colors, hatches = palette.colors_for(
         ["a", "b"], preset="Set2", overrides={"a": "#ff0000"})
