@@ -42,6 +42,12 @@ CSS = """
 }
 html, body, [class*="css"]{ font-family:var(--font-sans); color:var(--body); }
 .stApp{ background:var(--canvas); }
+/* Centre text in analysis tables (st.dataframe glide-grid + st.table). */
+[data-testid="stTable"] td, [data-testid="stTable"] th{ text-align:center !important; }
+[data-testid="stDataFrame"] [role="columnheader"],
+[data-testid="stDataFrame"] [role="gridcell"]{ justify-content:center !important;
+  text-align:center !important; }
+[data-testid="stDataFrame"] [role="gridcell"] > *{ text-align:center !important; }
 /* Streamlit pads the main block very generously at the top; trim it but leave a
    little breathing room above the header. */
 .block-container, [data-testid="stMainBlockContainer"]{ padding-top:3rem !important; }
