@@ -42,8 +42,9 @@ CSS = """
 }
 html, body, [class*="css"]{ font-family:var(--font-sans); color:var(--body); }
 .stApp{ background:var(--canvas); }
-/* Streamlit pads the main block generously at the top; pull the header up. */
-.block-container, [data-testid="stMainBlockContainer"]{ padding-top:2rem !important; }
+/* Streamlit pads the main block very generously at the top; trim it but leave a
+   little breathing room above the header. */
+.block-container, [data-testid="stMainBlockContainer"]{ padding-top:3rem !important; }
 /* hide the sidebar entirely (turned off for this redesign) */
 section[data-testid="stSidebar"]{ display:none !important; }
 div[data-testid="collapsedControl"]{ display:none !important; }
@@ -96,11 +97,6 @@ h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
   letter-spacing:-0.02em; }
 .st-key-brand_home button:hover{ color:var(--accent) !important; background:transparent !important; }
 .st-key-brand_home button p{ font-size:20px !important; font-weight:700 !important; }
-/* Sits in its own Streamlit block, and Streamlit adds a flex gap above AND below
-   every element — margin:0 isn't enough, so pull the rule up to the header row
-   and the following content up to the rule with negative margins. */
-.header-rule{ border:0; border-top:1px solid var(--border); margin:-14px 0 -8px; }
-[data-testid="stMarkdownContainer"]:has(.header-rule){ margin:0; padding:0; }
 .topbar{ display:flex; align-items:center; gap:14px; padding:10px 0 12px; border-bottom:1px solid var(--border); margin-bottom:18px; }
 .topbar .title{ font-size:20px; font-weight:700; color:var(--ink); }
 .topbar .sub{ font-size:12px; color:var(--muted); }

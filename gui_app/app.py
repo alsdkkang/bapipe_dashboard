@@ -1038,7 +1038,6 @@ def render_header():
             st.rerun()
     with c2:
         auth.header_account()
-    st.markdown("<hr class='header-rule'>", unsafe_allow_html=True)
 
 
 # ---- Overview ------------------------------------------------------------- #
