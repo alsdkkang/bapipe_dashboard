@@ -187,6 +187,8 @@ def _render_logo(logo_path, width=110):
 
 
 def _login_page(logo_path):
+    # Push the card down so it sits roughly in the vertical centre of the viewport.
+    st.markdown("<div style='height:14vh'></div>", unsafe_allow_html=True)
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
         st.markdown(
