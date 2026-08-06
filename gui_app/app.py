@@ -688,6 +688,23 @@ def fig_export(fig, basename, key):
                        file_name=f"{basename}.{fmt}", mime=mimes[fmt], key=f"{key}_dl")
 
 
+def show_table(df):
+    """Render an analysis table with NUMBERS right-aligned and TEXT centred (headers
+    match). Uses st.table so the per-column CSS alignment is actually honoured —
+    st.dataframe's data grid ignores it."""
+    d = df.reset_index()
+    first = d.columns[0]
+    if str(first).startswith("index") and list(d[first]) == list(range(len(d))):
+        d = d.drop(columns=[first])  # drop a meaningless default row index
+    styles = []
+    for i, c in enumerate(d.columns):
+        align = "right" if pd.api.types.is_numeric_dtype(d[c]) else "center"
+        styles.append({"selector": f"td.col{i}", "props": [("text-align", align)]})
+        styles.append({"selector": f"th.col{i}", "props": [("text-align", align)]})
+    sty = d.style.hide(axis="index").set_table_styles(styles).format(precision=2)
+    st.table(sty)
+
+
 # --------------------------------------------------------------------------- #
 # Phase router — Welcome / Guide / Wizard / Loading / My Records / App
 # --------------------------------------------------------------------------- #
@@ -1083,7 +1100,7 @@ def render_overview():
     with col_side:
         st.markdown("<div class='eyebrow'>Animal ranking</div>", unsafe_allow_html=True)
         rank = per["distance"].sort_values(ascending=False).round(0).astype(int)
-        st.dataframe(rank.to_frame("distance"), use_container_width=True, height=300)
+        show_table(rank.to_frame("distance"))
 
     # By-group summary card.
     if group_col and n_groups:
@@ -1091,8 +1108,7 @@ def render_overview():
         gsum = (per.groupby(group_col)[["distance", "duration"]]
                 .agg(["mean", "count"]).round(1))
         gsum.columns = ["distance (mean)", "n", "duration (mean)", "n "]
-        st.dataframe(gsum[["distance (mean)", "duration (mean)", "n"]],
-                     use_container_width=True)
+        show_table(gsum[["distance (mean)", "duration (mean)", "n"]])
 
     # Alignment check (kept from the original overview), tucked into an expander.
     with st.expander("Alignment check — original vs. aligned montage"):
@@ -1158,7 +1174,7 @@ def render_distance():
         fig_export(fig, "distance", "dist")
     with col_tbl:
         st.markdown("**Distances**")
-        st.dataframe(data, height=380)
+        show_table(data)
         st.download_button("Download CSV", data.to_csv().encode(), "distances.csv",
                            "text/csv", key="dist_csv")
 
@@ -1372,7 +1388,7 @@ def render_zone():
         ax.set_ylabel("Time in zone [s]")
         st.pyplot(fig)
         fig_export(fig, "time_in_zone", "zone_bar")
-    st.dataframe(data)
+    show_table(data)
     st.download_button("Download CSV", data.to_csv().encode(), "time_in_zone.csv",
                        "text/csv", key="zone_csv")
 
@@ -1434,7 +1450,7 @@ def render_results():
         results = results.join(metadata[group_cols])  # only categorical group columns
 
     st.markdown("**Per-animal results**")
-    st.dataframe(results)
+    show_table(results)
     st.download_button("Download per-animal CSV", results.to_csv().encode(),
                        "results_per_animal.csv", "text/csv", key="results_csv")
 
@@ -1445,7 +1461,7 @@ def render_results():
                             key="results_group",
                             help="Group column to aggregate the metrics by (mean ± SEM per group).")
         summary = results.groupby(gcol)[metric_cols].agg(["mean", "sem", "count"]).round(3)
-        st.dataframe(summary)
+        show_table(summary)
         st.download_button("Download group-summary CSV", summary.to_csv().encode(),
                            "results_group_summary.csv", "text/csv", key="results_summary_csv")
     else:
@@ -1542,7 +1558,7 @@ def render_records():
             with st.container(border=True):
                 st.markdown("<div class='section-title'>Per-animal results</div>",
                             unsafe_allow_html=True)
-                st.dataframe(per, use_container_width=True)
+                show_table(per)
                 st.download_button("Download table (.csv)", per.to_csv(index=False).encode(),
                                    f"{rec['id']}_per_animal.csv", "text/csv", key="per_csv")
                 _metric_charts(per, per["id"] if "id" in per.columns else per.index,
@@ -1553,7 +1569,7 @@ def render_records():
                 with st.container(border=True):
                     st.markdown("<div class='section-title'>Group summary</div>",
                                 unsafe_allow_html=True)
-                    st.dataframe(gs, use_container_width=True)
+                    show_table(gs)
                     st.download_button("Download table (.csv)", gs.to_csv(index=False).encode(),
                                        f"{rec['id']}_group_summary.csv", "text/csv", key="gs_csv")
                     _metric_charts(gs, gs["group"], "Group", "group", "gs")
