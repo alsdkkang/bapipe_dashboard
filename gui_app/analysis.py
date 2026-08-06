@@ -59,6 +59,14 @@ def get_centroid(video):
     return centroid[["x", "y"]]
 
 
+def trajectory_xy(video):
+    """Time-ordered centroid path for the movement-trajectory plot. Returns
+    ``(xs, ys)`` numpy arrays (same aligned coordinate space as distance / zone /
+    heatmap); low-confidence frames stay as NaN gaps so the path doesn't jump."""
+    c = get_centroid(video)
+    return c["x"].to_numpy(), c["y"].to_numpy()
+
+
 def distance_travelled(video):
     """Total distance travelled by the mouse centroid (in box units, e.g. mm)."""
     centroid = get_centroid(video)

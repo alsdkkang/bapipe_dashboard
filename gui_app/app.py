@@ -1163,6 +1163,63 @@ def render_distance():
                            "text/csv", key="dist_csv")
 
 
+# ---- Trajectory ----------------------------------------------------------- #
+def _trajectory_fig(xs, ys, size=(5, 4)):
+    t = np.arange(len(xs))
+    valid = ~(np.isnan(xs) | np.isnan(ys))
+    fig, ax = plt.subplots(figsize=size)
+    ax.plot(xs, ys, color="#4F46E5", alpha=0.25, lw=0.8)
+    sc = ax.scatter(xs[valid], ys[valid], c=t[valid], cmap="viridis", s=5)
+    if valid.any():
+        xv, yv = xs[valid], ys[valid]
+        ax.scatter([xv[0]], [yv[0]], c="#1c6a2e", s=70, marker="o", zorder=5, label="start")
+        ax.scatter([xv[-1]], [yv[-1]], c="#a11b1b", s=70, marker="X", zorder=5, label="end")
+        ax.legend(loc="upper right", fontsize=8)
+    ax.invert_yaxis()
+    ax.set_aspect("equal", "box")
+    ax.set_xlabel("x"); ax.set_ylabel("y")
+    ax.spines[["top", "right"]].set_visible(False)
+    cb = fig.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+    cb.set_label("frame (time)")
+    fig.tight_layout()
+    return fig
+
+
+def render_trajectory():
+    st.subheader("Movement trajectory")
+    sel = animal_selector("traj_animals")
+    st.caption("Cumulative path of the mouse centroid over the recording "
+               "(colour = time; ● start, ✕ end).")
+    figs = []
+    with loading("loading"):
+        for aid in sel:
+            v = video_set[video_set.index.index(aid)]
+            xs, ys = analysis.trajectory_xy(v)
+            fig = _trajectory_fig(xs, ys)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches="tight", dpi=150, facecolor="white")
+            figs.append((aid, fig, buf.getvalue()))
+    for i in range(0, len(figs), 2):
+        cols = st.columns(2)
+        for col, (aid, fig, png) in zip(cols, figs[i:i + 2]):
+            with col:
+                st.markdown(f"**{aid}**")
+                st.pyplot(fig)
+                plt.close(fig)
+                st.download_button("Download figure (.png)", png,
+                                   file_name=f"trajectory_{aid}.png", mime="image/png",
+                                   key=f"traj_dl_{aid}")
+    rid = st.session_state.get("current_record_id")
+    if figs and st.button(f"💾 Save all trajectories to record ({len(figs)})",
+                          key="traj_save_all", disabled=not rid,
+                          help="Store every trajectory in your saved analysis."
+                          if rid else "Available after loading an experiment."):
+        saved = sum(bool(records.add_figure(current_user_key(), rid,
+                                            f"Trajectory — {aid}", png))
+                    for aid, _f, png in figs)
+        st.toast(f"Saved {saved} trajectory figure(s) to your analysis")
+
+
 # ---- Heatmaps ------------------------------------------------------------- #
 def render_heatmaps():
     st.subheader("Occupancy heatmaps")
@@ -1501,33 +1558,39 @@ def render_records():
                                        f"{rec['id']}_group_summary.csv", "text/csv", key="gs_csv")
                     _metric_charts(gs, gs["group"], "Group", "group", "gs")
 
-            # ---- Heatmaps: the only figures that can't be rebuilt from numbers -
-            heatmaps = [f for f in (rec.get("figures") or [])
-                        if str(f.get("label", "")).startswith("Heatmap")]
-            if heatmaps:
+            # ---- Saved figure images (heatmaps / trajectories) — can't be rebuilt
+            saved_figs = rec.get("figures") or []
+            SECTIONS = [("Heatmap by group", "Heatmap"),
+                        ("Movement trajectory", "Trajectory")]
+            shown = False
+            for title, prefix in SECTIONS:
+                items = [f for f in saved_figs
+                         if str(f.get("label", "")).startswith(prefix)]
+                if not items:
+                    continue
+                shown = True
                 with st.container(border=True):
-                    st.markdown("<div class='section-title'>Heatmap by group</div>",
+                    st.markdown(f"<div class='section-title'>{title}</div>",
                                 unsafe_allow_html=True)
-                    for i in range(0, len(heatmaps), GRID):
+                    for i in range(0, len(items), GRID):
                         cols = st.columns(GRID)
-                        for j, (col, f) in enumerate(zip(cols, heatmaps[i:i + GRID])):
+                        for j, (col, f) in enumerate(zip(cols, items[i:i + GRID])):
                             with col:
                                 label = str(f.get("label", "figure"))
-                                group = label.split("—", 1)[-1].strip() or label
-                                st.caption(group)
+                                name = label.split("—", 1)[-1].strip() or label
+                                st.caption(name)
                                 png = base64.b64decode(f["png"])
                                 st.image(png, use_container_width=True)
                                 st.download_button(
                                     "Download figure (.png)", png,
-                                    file_name=(f"heatmap_{group}.png".replace("/", "-")
-                                               .replace(" ", "_")),
-                                    mime="image/png", key=f"savedfig_dl_{i + j}")
-            else:
-                st.info("No heatmaps saved yet — they can't be rebuilt from the "
-                        "stored numbers. Open the experiment, go to **Heatmaps**, "
-                        "press **Compute heatmaps**, then **💾 Save all heatmaps to "
-                        "record**. (Validation clips can't be saved — they need the "
-                        "raw video.)")
+                                    file_name=(f"{prefix.lower()}_{name}.png"
+                                               .replace("/", "-").replace(" ", "_")),
+                                    mime="image/png", key=f"savedfig_dl_{prefix}_{i + j}")
+            if not shown:
+                st.info("No saved figures yet. Heatmaps and trajectories can't be "
+                        "rebuilt from the stored numbers — open the experiment, go to "
+                        "**Heatmaps** or **Trajectory**, and use the **💾 Save** button. "
+                        "(Validation clips can't be saved — they need the raw video.)")
         return
 
     for rec in recs:
@@ -1589,8 +1652,10 @@ elif phase == "app":
         except Exception:
             st.session_state["current_record_id"] = None
 
-    VIEWS = ["Overview", "Distance", "Heatmaps", "Time in zone", "Validation video", "Results"]
+    VIEWS = ["Overview", "Distance", "Trajectory", "Heatmaps", "Time in zone",
+             "Validation video", "Results"]
     _view_fns = {"Overview": render_overview, "Distance": render_distance,
+                 "Trajectory": render_trajectory,
                  "Heatmaps": render_heatmaps, "Time in zone": render_zone,
                  "Validation video": render_validation, "Results": render_results}
     nav_col, content = st.columns([1.25, 6], gap="large")
