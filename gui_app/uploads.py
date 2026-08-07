@@ -58,26 +58,21 @@ def detect_dirs(root):
     }
 
 
-def save_and_detect(uploaded):
-    """Extract an uploaded zip to a fresh temp dir, detect the pieces, and prime
-    the canonical + wizard data keys. Returns ``(ok, message)``."""
+def _fresh_dir():
     prev = st.session_state.get("_upload_dir")
     if prev and Path(prev).exists():
         shutil.rmtree(prev, ignore_errors=True)
     root = Path(tempfile.mkdtemp(prefix="bapipe_upload_"))
-    try:
-        with zipfile.ZipFile(io.BytesIO(uploaded.getvalue())) as z:
-            z.extractall(root)
-    except zipfile.BadZipFile:
-        return False, "That doesn't look like a valid .zip file."
     st.session_state["_upload_dir"] = str(root)
+    return root
 
-    found = detect_dirs(root)
+
+def _apply(found):
+    """Validate a detection result, prime the data keys, and build a summary."""
     if not found["video_dir"]:
-        return False, "No videos (.mp4) found in the zip."
+        return False, "No videos (.mp4) found."
     if not found["dlc_dir"]:
-        return False, "No DLC keypoints (.h5) found in the zip."
-
+        return False, "No DLC keypoints (.h5) found."
     st.session_state["data_video_dir"] = st.session_state["w_video"] = str(found["video_dir"])
     st.session_state["data_dlc_dir"] = st.session_state["w_dlc"] = str(found["dlc_dir"])
     st.session_state["data_landmark_dir"] = st.session_state["w_land"] = (
@@ -86,13 +81,54 @@ def save_and_detect(uploaded):
         str(found["calib"]) if found["calib"] else "")
     st.session_state["data_meta_path"] = st.session_state["w_meta"] = (
         str(found["meta"]) if found["meta"] else "")
-
     n_vid = sum(1 for p in found["video_dir"].iterdir() if p.suffix.lower() in VIDEO_EXT)
-    bits = [f"{n_vid} video(s)", f"DLC “{found['dlc_dir'].name}”"]
+    bits = [f"{n_vid} video(s)", "DLC .h5"]
     if found["landmark_dir"]:
         bits.append("landmarks")
     if found["calib"]:
         bits.append("calibration")
     if found["meta"]:
         bits.append(f"metadata “{found['meta'].name}”")
-    return True, "Extracted — " + ", ".join(bits) + "."
+    return True, "Ready — " + ", ".join(bits) + "."
+
+
+def save_and_detect(uploaded):
+    """Extract an uploaded zip, detect the pieces, and prime the data keys."""
+    root = _fresh_dir()
+    try:
+        with zipfile.ZipFile(io.BytesIO(uploaded.getvalue())) as z:
+            z.extractall(root)
+    except zipfile.BadZipFile:
+        return False, "That doesn't look like a valid .zip file."
+    return _apply(detect_dirs(root))
+
+
+def _classify(name):
+    n = name.lower()
+    ext = Path(name).suffix.lower()
+    if ext in VIDEO_EXT and "_labeled" not in n:
+        return "videos"
+    if ext == ".h5":
+        return "landmarks" if n.endswith("_landmarks.h5") else "mouse_labels"
+    return None  # calib / metadata are sorted by content below
+
+
+def save_files_and_detect(files):
+    """Accept a multi-file selection (a whole folder's contents, no zip needed),
+    sort the files into a temp folder structure by name/content, and prime the
+    data keys. Returns ``(ok, message)``."""
+    root = _fresh_dir()
+    for sub in ("videos", "mouse_labels", "landmarks"):
+        (root / sub).mkdir(exist_ok=True)
+    for f in files:
+        data = f.getvalue()
+        cat = _classify(f.name)
+        if cat:
+            (root / cat / Path(f.name).name).write_bytes(data)
+            continue
+        ext = Path(f.name).suffix.lower()
+        if ext == ".json" and b"camera_matrix" in data:
+            (root / Path(f.name).name).write_bytes(data)          # calibration
+        elif ext == ".csv":
+            (root / Path(f.name).name).write_bytes(data)          # metadata / manifest
+    return _apply(detect_dirs(root))

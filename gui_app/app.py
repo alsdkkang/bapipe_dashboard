@@ -791,22 +791,37 @@ def render_wizard():
         st.subheader("Where is your experiment?")
         # Upload path — the only way to get your own data onto the hosted server
         # (offered everywhere; on the server Browse/local paths don't work).
-        with st.expander("⬆️ Upload experiment (.zip)", expanded=not CAN_BROWSE):
-            st.caption("Zip your experiment folder — videos + DLC .h5 (and optional "
-                       "landmark .h5, camera_calibrations.json, metadata.csv) — and "
-                       "upload it. It's extracted to a temporary folder and analysed; "
-                       "nothing is stored.")
-            up = st.file_uploader("Experiment .zip", type=["zip"], key="w_zip",
-                                  label_visibility="collapsed")
-            if up is not None and st.session_state.get("_uploaded_name") != up.name:
-                st.session_state["_uploaded_name"] = up.name
-                with loading("loading"):
-                    ok, msg = uploads.save_and_detect(up)
-                if ok:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
+        with st.expander("⬆️ Upload experiment", expanded=not CAN_BROWSE):
+            st.caption("Upload your experiment — videos + DLC .h5 (and optional "
+                       "landmark .h5, camera_calibrations.json, metadata.csv). Files "
+                       "are analysed from a temporary folder; nothing is stored.")
+            tab_files, tab_zip = st.tabs(["Select files", "Upload a .zip"])
+            with tab_files:
+                st.caption("Open your experiment folder and select **all** the files "
+                           "(⌘A / Ctrl-A). They're sorted automatically by type. "
+                           "(Browsers can't upload a folder directly — this is the "
+                           "no-zip equivalent.)")
+                ups = st.file_uploader("Experiment files", accept_multiple_files=True,
+                                       key="w_files", label_visibility="collapsed")
+                _sig = tuple(sorted((f.name, f.size) for f in ups)) if ups else ()
+                if ups and st.session_state.get("_uploaded_sig") != _sig:
+                    st.session_state["_uploaded_sig"] = _sig
+                    with loading("loading"):
+                        ok, msg = uploads.save_files_and_detect(ups)
+                    st.success(msg) if ok else st.error(msg)
+                    if ok:
+                        st.rerun()
+            with tab_zip:
+                st.caption("Or zip the folder and upload one file.")
+                up = st.file_uploader("Experiment .zip", type=["zip"], key="w_zip",
+                                      label_visibility="collapsed")
+                if up is not None and st.session_state.get("_uploaded_name") != up.name:
+                    st.session_state["_uploaded_name"] = up.name
+                    with loading("loading"):
+                        ok, msg = uploads.save_and_detect(up)
+                    st.success(msg) if ok else st.error(msg)
+                    if ok:
+                        st.rerun()
             if not CAN_BROWSE:
                 st.caption("Or try it without any data:")
                 if st.button("Load sample experiment", key="wiz_sample"):

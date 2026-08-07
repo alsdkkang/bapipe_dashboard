@@ -35,3 +35,12 @@ def test_metadata_not_confused_with_manifest(tmp_path):
     (tmp_path / "datafiles.csv").write_text("id,video,mouse_labels\nf1,videos/f1.mp4,x.h5\n")
     found = uploads.detect_dirs(tmp_path)
     assert found["meta"].name == "meta.csv"  # manifest (has 'video') is not picked
+
+
+def test_classify_sorts_files_by_type():
+    assert uploads._classify("f1.mp4") == "videos"
+    assert uploads._classify("f1_labeledDLC.mp4") is None  # skip DLC-labeled videos
+    assert uploads._classify("f1DLC_resnet50.h5") == "mouse_labels"
+    assert uploads._classify("f1_landmarks.h5") == "landmarks"
+    assert uploads._classify("camera_calibrations.json") is None  # sorted by content
+    assert uploads._classify("metadata.csv") is None
