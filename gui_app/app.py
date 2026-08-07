@@ -827,10 +827,13 @@ def render_wizard():
                   use_container_width=True, disabled=not CAN_BROWSE,
                   help="Open a folder chooser (local use only).")
         cb1, cb2 = st.columns([4, 1], vertical_alignment="bottom")
-        cb1.text_input("Camera calibration (.json)", key="w_calib",
-                       help="Camera calibration JSON (camera_matrix + distortion_"
-                            "coefficients). When given, lens-distortion correction is "
-                            "applied automatically to every video. Leave blank to skip.")
+        cb1.text_input("Camera calibration (.json) — optional", key="w_calib",
+                       help="Per-camera calibration JSON (camera_matrix + distortion_"
+                            "coefficients from a checkerboard calibration). It is "
+                            "SPECIFIC to the camera/lens that recorded these videos. "
+                            "Attach it to correct lens distortion; leave blank to "
+                            "analyse the raw coordinates (no correction). Don't reuse "
+                            "another camera's file — that adds distortion.")
         cb2.button("Browse…", key="browse_calib", on_click=_pick_calib_file,
                    use_container_width=True, disabled=not CAN_BROWSE,
                    help="Open a file chooser (local use only).")
@@ -843,6 +846,9 @@ def render_wizard():
             _cok = Path(_cp).exists()
             st.caption(("✓ Lens-distortion correction will be applied." if _cok
                         else "⚠ Calibration file not found — lens correction will be skipped."))
+        else:
+            st.caption("No calibration — analyses will run on the raw coordinates "
+                       "(no lens-distortion correction).")
         if data_status:
             _bg = {"success": "var(--success-weak)", "warn": "var(--warning-weak)"}.get(
                 data_status[0], "var(--danger-weak)")
