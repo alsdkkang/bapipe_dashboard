@@ -55,6 +55,9 @@ importlib.reload(records)
 importlib.reload(routing)
 importlib.reload(theme)
 importlib.reload(guide)
+importlib.reload(samples)
+importlib.reload(palette)
+importlib.reload(uploads)
 
 st.set_page_config(page_title="bapipe-keypoints dashboard", layout="wide")
 
