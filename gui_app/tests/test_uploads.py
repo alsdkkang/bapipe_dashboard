@@ -1,4 +1,6 @@
+import io
 import sys
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -6,41 +8,44 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import uploads  # noqa: E402
 
 
-def test_detect_dirs_on_sample_layout():
-    sample = Path(__file__).resolve().parents[1] / "sample_data"
-    if not sample.exists():
-        import pytest
-        pytest.skip("sample_data not bundled")
-    found = uploads.detect_dirs(sample)
-    assert found["video_dir"].name == "videos"
-    assert found["dlc_dir"].name == "mouse_labels"
-    assert found["landmark_dir"].name == "landmark_labels"
-    assert found["calib"].name == "camera_calibrations.json"
-    assert found["meta"].name == "metadata.csv"
+class _Fake:
+    """Stand-in for a Streamlit UploadedFile (name + getvalue())."""
+    def __init__(self, name, data=b"\x00"):
+        self.name = name
+        self._data = data
+
+    def getvalue(self):
+        return self._data
 
 
-def test_detect_dirs_missing_pieces(tmp_path):
-    # only videos, no h5 / calib / metadata
-    (tmp_path / "videos").mkdir()
-    (tmp_path / "videos" / "f1.mp4").write_bytes(b"\x00")
-    found = uploads.detect_dirs(tmp_path)
-    assert found["video_dir"].name == "videos"
-    assert found["dlc_dir"] is None
-    assert found["landmark_dir"] is None
-    assert found["calib"] is None and found["meta"] is None
+def test_write_folder_writes_files(tmp_path):
+    dest = tmp_path / "videos"
+    n = uploads.write_folder(dest, [_Fake("f1.mp4"), _Fake("f2.mp4")])
+    assert n == 2
+    assert {p.name for p in dest.iterdir()} == {"f1.mp4", "f2.mp4"}
 
 
-def test_metadata_not_confused_with_manifest(tmp_path):
-    (tmp_path / "meta.csv").write_text("id,treatment\nf1,saline\n")
-    (tmp_path / "datafiles.csv").write_text("id,video,mouse_labels\nf1,videos/f1.mp4,x.h5\n")
-    found = uploads.detect_dirs(tmp_path)
-    assert found["meta"].name == "meta.csv"  # manifest (has 'video') is not picked
+def test_write_folder_extracts_zip(tmp_path):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("run/f1DLC.h5", b"\x00")
+        z.writestr("run/f2DLC.h5", b"\x00")
+        z.writestr("run/", b"")  # a bare directory entry is skipped
+    dest = tmp_path / "mouse_labels"
+    n = uploads.write_folder(dest, [_Fake("labels.zip", buf.getvalue())])
+    assert n == 2
+    # nested paths are flattened to basenames
+    assert {p.name for p in dest.iterdir()} == {"f1DLC.h5", "f2DLC.h5"}
 
 
-def test_classify_sorts_files_by_type():
-    assert uploads._classify("f1.mp4") == "videos"
-    assert uploads._classify("f1_labeledDLC.mp4") is None  # skip DLC-labeled videos
-    assert uploads._classify("f1DLC_resnet50.h5") == "mouse_labels"
-    assert uploads._classify("f1_landmarks.h5") == "landmarks"
-    assert uploads._classify("camera_calibrations.json") is None  # sorted by content
-    assert uploads._classify("metadata.csv") is None
+def test_write_folder_replaces_previous_contents(tmp_path):
+    dest = tmp_path / "videos"
+    uploads.write_folder(dest, [_Fake("old.mp4")])
+    uploads.write_folder(dest, [_Fake("new.mp4")])
+    assert {p.name for p in dest.iterdir()} == {"new.mp4"}  # old cleared
+
+
+def test_field_keys_cover_the_three_folders():
+    assert set(uploads.FIELD_KEYS) == {"videos", "mouse_labels", "landmarks"}
+    # each maps to (canonical data key, wizard widget key)
+    assert uploads.FIELD_KEYS["videos"] == ("data_video_dir", "w_video")

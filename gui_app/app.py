@@ -772,6 +772,39 @@ def _stepper(step):
             unsafe_allow_html=True)
 
 
+def _folder_field(label, subdir, key, help_text):
+    """A per-field uploader for one folder (videos / DLC / landmarks): pick the
+    files that go in it, or a .zip of the folder. Sets the field's data keys."""
+    ups = st.file_uploader(label, accept_multiple_files=True, key=key, help=help_text)
+    sigk = f"_sig_{key}"
+    sig = tuple(sorted((f.name, f.size) for f in ups)) if ups else ()
+    if ups and st.session_state.get(sigk) != sig:
+        st.session_state[sigk] = sig
+        with loading("loading"):
+            ok, msg = uploads.save_field_folder(subdir, ups)
+        st.success(msg) if ok else st.error(msg)
+        if ok:
+            st.rerun()
+    cur = st.session_state.get(uploads.FIELD_KEYS[subdir][0], "")
+    if cur and Path(cur).is_dir():
+        cnt = sum(1 for _ in Path(cur).iterdir())
+        if cnt:
+            st.caption(f"✓ {cnt} file(s) ready")
+
+
+def _single_field(label, dkey, wkey, types, key, help_text, is_calib=False):
+    """A per-field uploader for a single file (calibration / metadata)."""
+    up = st.file_uploader(label, type=types, key=key, help=help_text)
+    sigk = f"_sig_{key}"
+    sig = (up.name, up.size) if up else None
+    if up and st.session_state.get(sigk) != sig:
+        st.session_state[sigk] = sig
+        ok, msg = uploads.save_field_single(dkey, wkey, up, is_calib=is_calib)
+        st.success(msg) if ok else st.error(msg)
+        if ok:
+            st.rerun()
+
+
 def render_wizard():
     step = st.session_state.setdefault("wizard_step", 0)
     # If we somehow reached a later step without a valid data selection (e.g. the
@@ -789,46 +822,6 @@ def render_wizard():
         if st.session_state.pop("_wizard_bounced", False):
             st.info("Please choose your Video and DLC folders to continue.")
         st.subheader("Where is your experiment?")
-        # Upload path — the only way to get your own data onto the hosted server
-        # (offered everywhere; on the server Browse/local paths don't work).
-        with st.expander("⬆️ Upload experiment", expanded=not CAN_BROWSE):
-            st.caption("Upload your experiment — videos + DLC .h5 (and optional "
-                       "landmark .h5, camera_calibrations.json, metadata.csv). Files "
-                       "are analysed from a temporary folder; nothing is stored.")
-            tab_files, tab_zip = st.tabs(["Select files", "Upload a .zip"])
-            with tab_files:
-                st.caption("Open your experiment folder and select **all** the files "
-                           "(⌘A / Ctrl-A). They're sorted automatically by type. "
-                           "(Browsers can't upload a folder directly — this is the "
-                           "no-zip equivalent.)")
-                ups = st.file_uploader("Experiment files", accept_multiple_files=True,
-                                       key="w_files", label_visibility="collapsed")
-                _sig = tuple(sorted((f.name, f.size) for f in ups)) if ups else ()
-                if ups and st.session_state.get("_uploaded_sig") != _sig:
-                    st.session_state["_uploaded_sig"] = _sig
-                    with loading("loading"):
-                        ok, msg = uploads.save_files_and_detect(ups)
-                    st.success(msg) if ok else st.error(msg)
-                    if ok:
-                        st.rerun()
-            with tab_zip:
-                st.caption("Or zip the folder and upload one file.")
-                up = st.file_uploader("Experiment .zip", type=["zip"], key="w_zip",
-                                      label_visibility="collapsed")
-                if up is not None and st.session_state.get("_uploaded_name") != up.name:
-                    st.session_state["_uploaded_name"] = up.name
-                    with loading("loading"):
-                        ok, msg = uploads.save_and_detect(up)
-                    st.success(msg) if ok else st.error(msg)
-                    if ok:
-                        st.rerun()
-            if not CAN_BROWSE:
-                st.caption("Or try it without any data:")
-                if st.button("Load sample experiment", key="wiz_sample"):
-                    for _k in ("video_set", "config", "metadata"):
-                        st.session_state.pop(_k, None)
-                    samples.prime_sample()
-                    go("loading")
         # Widget keys are seeded from the canonical values and mirrored back after,
         # so the selection survives when these widgets aren't rendered on later steps.
         st.session_state.setdefault("w_video", video_dir)
@@ -836,43 +829,65 @@ def render_wizard():
         st.session_state.setdefault("w_land", landmark_dir)
         st.session_state.setdefault("w_calib", calib_path)
         st.session_state.setdefault("w_meta", meta_path)
-        v1, v2 = st.columns([4, 1], vertical_alignment="bottom")
-        v1.text_input("Video folder", key="w_video",
-                      help="Folder containing your .mp4 videos (one per animal).")
-        v2.button("Browse…", key="browse_video", on_click=_pick_video_dir,
-                  use_container_width=True, disabled=not CAN_BROWSE,
-                  help="Open a folder chooser (local use only).")
-        h1, h2 = st.columns([4, 1], vertical_alignment="bottom")
-        h1.text_input("DLC keypoints folder (.h5)", key="w_dlc",
-                      help="Folder with the DeepLabCut .h5 output for each video "
-                           "(matched to videos by filename).")
-        h2.button("Browse…", key="browse_dlc", on_click=_pick_dlc_dir,
-                  use_container_width=True, disabled=not CAN_BROWSE,
-                  help="Open a folder chooser (local use only).")
-        l1, l2 = st.columns([4, 1], vertical_alignment="bottom")
-        l1.text_input("Landmark folder (.h5, optional)", key="w_land",
-                      help="Folder with per-video arena-corner .h5 files "
-                           "(<id>_landmarks.h5). If given, alignment uses these — more "
-                           "accurate than auto-detecting corners. Leave blank to set "
-                           "corners in the next steps.")
-        l2.button("Browse…", key="browse_land", on_click=_pick_landmark_dir,
-                  use_container_width=True, disabled=not CAN_BROWSE,
-                  help="Open a folder chooser (local use only).")
-        cb1, cb2 = st.columns([4, 1], vertical_alignment="bottom")
-        cb1.text_input("Camera calibration (.json) — optional", key="w_calib",
-                       help="Per-camera calibration JSON (camera_matrix + distortion_"
-                            "coefficients from a checkerboard calibration). It is "
-                            "SPECIFIC to the camera/lens that recorded these videos. "
-                            "Attach it to correct lens distortion; leave blank to "
-                            "analyse the raw coordinates (no correction). Don't reuse "
-                            "another camera's file — that adds distortion.")
-        cb2.button("Browse…", key="browse_calib", on_click=_pick_calib_file,
-                   use_container_width=True, disabled=not CAN_BROWSE,
-                   help="Open a file chooser (local use only).")
-        st.session_state["data_video_dir"] = st.session_state["w_video"]
-        st.session_state["data_dlc_dir"] = st.session_state["w_dlc"]
-        st.session_state["data_landmark_dir"] = st.session_state["w_land"]
-        st.session_state["data_calib_path"] = st.session_state["w_calib"]
+
+        if CAN_BROWSE:
+            # Local use: type a path or use the native folder/file chooser.
+            v1, v2 = st.columns([4, 1], vertical_alignment="bottom")
+            v1.text_input("Video folder", key="w_video",
+                          help="Folder containing your .mp4 videos (one per animal).")
+            v2.button("Browse…", key="browse_video", on_click=_pick_video_dir,
+                      use_container_width=True, help="Open a folder chooser.")
+            h1, h2 = st.columns([4, 1], vertical_alignment="bottom")
+            h1.text_input("DLC keypoints folder (.h5)", key="w_dlc",
+                          help="Folder with the DeepLabCut .h5 output for each video "
+                               "(matched to videos by filename).")
+            h2.button("Browse…", key="browse_dlc", on_click=_pick_dlc_dir,
+                      use_container_width=True, help="Open a folder chooser.")
+            l1, l2 = st.columns([4, 1], vertical_alignment="bottom")
+            l1.text_input("Landmark folder (.h5, optional)", key="w_land",
+                          help="Folder with per-video arena-corner .h5 files "
+                               "(<id>_landmarks.h5). If given, alignment uses these — "
+                               "more accurate than auto-detecting corners. Leave blank "
+                               "to set corners in the next steps.")
+            l2.button("Browse…", key="browse_land", on_click=_pick_landmark_dir,
+                      use_container_width=True, help="Open a folder chooser.")
+            cb1, cb2 = st.columns([4, 1], vertical_alignment="bottom")
+            cb1.text_input("Camera calibration (.json) — optional", key="w_calib",
+                           help="Per-camera calibration JSON (camera_matrix + "
+                                "distortion_coefficients). SPECIFIC to the camera/lens "
+                                "that recorded these videos. Attach it to correct lens "
+                                "distortion; leave blank to analyse raw coordinates.")
+            cb2.button("Browse…", key="browse_calib", on_click=_pick_calib_file,
+                       use_container_width=True, help="Open a file chooser.")
+            st.session_state["data_video_dir"] = st.session_state["w_video"]
+            st.session_state["data_dlc_dir"] = st.session_state["w_dlc"]
+            st.session_state["data_landmark_dir"] = st.session_state["w_land"]
+            st.session_state["data_calib_path"] = st.session_state["w_calib"]
+        else:
+            # Hosted server: upload each piece separately (files or a .zip of that
+            # folder). Everything lands in a temporary dir; nothing is stored.
+            st.caption("Upload each part of your experiment. For a folder, select all "
+                       "its files at once — or drop in a **.zip** of it.")
+            _folder_field("Video folder — .mp4 files (or a .zip)", "videos", "up_video",
+                          "Your .mp4 videos, one per animal.")
+            _folder_field("DLC keypoints folder — .h5 files (or a .zip)", "mouse_labels",
+                          "up_dlc", "The DeepLabCut .h5 output for each video "
+                          "(matched to videos by filename).")
+            _folder_field("Landmark folder — .h5 files (or a .zip), optional", "landmarks",
+                          "up_land", "Optional per-video arena-corner .h5 files "
+                          "(<id>_landmarks.h5). If given, alignment uses these — more "
+                          "accurate than auto-detecting corners.")
+            _single_field("Camera calibration (.json) — optional", "data_calib_path",
+                          "w_calib", ["json"], "up_calib",
+                          "Per-camera calibration (camera_matrix + distortion). "
+                          "Corrects lens distortion; specific to the recording camera. "
+                          "Leave blank to analyse the raw coordinates.", is_calib=True)
+            st.caption("Or try it without any data:")
+            if st.button("Load sample experiment", key="wiz_sample"):
+                for _k in ("video_set", "config", "metadata"):
+                    st.session_state.pop(_k, None)
+                samples.prime_sample()
+                go("loading")
         _cp = st.session_state["w_calib"]
         if _cp:
             _cok = Path(_cp).exists()
@@ -890,14 +905,19 @@ def render_wizard():
                 f"<span style='display:inline-block;background:{_bg};color:{_fg};"
                 f"padding:6px 12px;border-radius:6px;font-size:13px'>{data_status[1]}</span>",
                 unsafe_allow_html=True)
-        m1, m2 = st.columns([4, 1], vertical_alignment="bottom")
-        m1.text_input("Metadata CSV (optional)", key="w_meta",
-                      help="One row per animal with group columns (treatment, sex, "
-                           "cohort, …) so results can be compared across groups.")
-        m2.button("Browse…", key="browse_meta", on_click=_pick_meta_csv,
-                  use_container_width=True, disabled=not CAN_BROWSE,
-                  help="Open a file chooser (local use only).")
-        st.session_state["data_meta_path"] = st.session_state["w_meta"]
+        if CAN_BROWSE:
+            m1, m2 = st.columns([4, 1], vertical_alignment="bottom")
+            m1.text_input("Metadata CSV (optional)", key="w_meta",
+                          help="One row per animal with group columns (treatment, sex, "
+                               "cohort, …) so results can be compared across groups.")
+            m2.button("Browse…", key="browse_meta", on_click=_pick_meta_csv,
+                      use_container_width=True, help="Open a file chooser.")
+            st.session_state["data_meta_path"] = st.session_state["w_meta"]
+        else:
+            _single_field("Metadata CSV — optional", "data_meta_path", "w_meta",
+                          ["csv"], "up_meta", "One row per animal with group columns "
+                          "(treatment, sex, cohort, …) so results can be compared "
+                          "across groups.")
         # Join column: once a metadata CSV is chosen, offer its columns as a dropdown.
         _meta_cols = _metadata_columns(st.session_state["w_meta"])
         if _meta_cols:
