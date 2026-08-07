@@ -154,6 +154,41 @@ def verify(email, password):
         return False
 
 
+def _bootstrap_password():
+    """The admin bootstrap password, from secrets `[access].bootstrap_password`
+    or the BAPIPE_ADMIN_PASSWORD env var. Never stored in the repo."""
+    acc = _secret("access")
+    if acc is not None:
+        try:
+            pw = acc["bootstrap_password"]
+            if pw:
+                return str(pw)
+        except Exception:
+            pass
+    return os.environ.get("BAPIPE_ADMIN_PASSWORD") or None
+
+
+def bootstrap_admins():
+    """Ensure every admin has a login account seeded from the bootstrap password,
+    so admins can still sign in after the (ephemeral) users file is wiped by a
+    redeploy. Only creates missing accounts — a self-chosen admin password is left
+    untouched until the next wipe."""
+    pw = _bootstrap_password()
+    if not pw:
+        return
+    users = _load_users()
+    changed = False
+    for email in _seed_admins():
+        if email and email not in users:
+            users[email] = {
+                "name": email.split("@")[0],
+                "password": bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode(),
+            }
+            changed = True
+    if changed:
+        _save_users(users)
+
+
 # --------------------------------------------------------------------------- #
 # Current user
 # --------------------------------------------------------------------------- #
@@ -244,6 +279,8 @@ def require_login(logo_path=None):
     """Gate the whole app: renders login / pending screens and stops when not permitted."""
     if not auth_enabled():
         return
+
+    bootstrap_admins()  # (re)seed admin login accounts from the bootstrap password
 
     email, name = _current()
     if not email:

@@ -39,6 +39,38 @@ def test_admins_and_enablement_from_env(monkeypatch):
     assert auth.is_admin("BOSS@x.com") is True
 
 
+def test_bootstrap_admins_seeds_login_from_password(monkeypatch, tmp_path):
+    monkeypatch.setenv("BAPIPE_USERS_FILE", str(tmp_path / "u.json"))
+    monkeypatch.setenv("BAPIPE_ACCESS_FILE", str(tmp_path / "a.json"))
+    monkeypatch.setenv("BAPIPE_ADMINS", "boss@x.com")
+    monkeypatch.setenv("BAPIPE_ADMIN_PASSWORD", "pw-test-1")
+    import auth
+    importlib.reload(auth)
+    monkeypatch.setattr(auth, "_secret", lambda section: None)  # no secrets.toml
+    assert auth.verify("boss@x.com", "pw-test-1") is False  # no account yet
+    auth.bootstrap_admins()
+    assert auth.verify("boss@x.com", "pw-test-1") is True    # seeded, can log in
+    assert auth.verify("boss@x.com", "wrong") is False
+    # a self-chosen password is not clobbered by a re-run
+    import bcrypt
+    users = auth._load_users()
+    users["boss@x.com"]["password"] = bcrypt.hashpw(b"mine", bcrypt.gensalt()).decode()
+    auth._save_users(users)
+    auth.bootstrap_admins()
+    assert auth.verify("boss@x.com", "mine") is True
+
+
+def test_bootstrap_noop_without_password(monkeypatch, tmp_path):
+    monkeypatch.setenv("BAPIPE_USERS_FILE", str(tmp_path / "u.json"))
+    monkeypatch.setenv("BAPIPE_ADMINS", "boss@x.com")
+    monkeypatch.delenv("BAPIPE_ADMIN_PASSWORD", raising=False)
+    import auth
+    importlib.reload(auth)
+    monkeypatch.setattr(auth, "_secret", lambda section: None)
+    auth.bootstrap_admins()
+    assert auth.verify("boss@x.com", "anything") is False  # nothing seeded
+
+
 def test_google_disabled_even_with_auth_secret(monkeypatch):
     import auth
     importlib.reload(auth)

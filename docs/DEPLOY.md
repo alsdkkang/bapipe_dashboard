@@ -23,6 +23,9 @@ The easiest free host for this Streamlit app. No Docker needed; it installs from
    ```toml
    [access]
    admins = ["you@example.com"]
+   # Optional: seed the admin login on every start so it survives redeploys
+   # (storage is ephemeral). Admins can then always sign in with this password.
+   bootstrap_password = "choose-a-password"
 
    # Optional: email approved users "you can now log in" (Gmail SMTP).
    # Needs 2-Step Verification on the Gmail account + an App Password
