@@ -50,6 +50,7 @@ import theme
 import guide
 import samples
 import palette
+import uploads
 importlib.reload(records)
 importlib.reload(routing)
 importlib.reload(theme)
@@ -788,15 +789,31 @@ def render_wizard():
         if st.session_state.pop("_wizard_bounced", False):
             st.info("Please choose your Video and DLC folders to continue.")
         st.subheader("Where is your experiment?")
-        if not CAN_BROWSE:
-            st.info("On the hosted demo you can't browse the server's files, and "
-                    "uploading your own data is coming later. Load the bundled "
-                    "sample instead:")
-            if st.button("Load sample experiment", type="primary", key="wiz_sample"):
-                for _k in ("video_set", "config", "metadata"):
-                    st.session_state.pop(_k, None)
-                samples.prime_sample()
-                go("loading")
+        # Upload path — the only way to get your own data onto the hosted server
+        # (offered everywhere; on the server Browse/local paths don't work).
+        with st.expander("⬆️ Upload experiment (.zip)", expanded=not CAN_BROWSE):
+            st.caption("Zip your experiment folder — videos + DLC .h5 (and optional "
+                       "landmark .h5, camera_calibrations.json, metadata.csv) — and "
+                       "upload it. It's extracted to a temporary folder and analysed; "
+                       "nothing is stored.")
+            up = st.file_uploader("Experiment .zip", type=["zip"], key="w_zip",
+                                  label_visibility="collapsed")
+            if up is not None and st.session_state.get("_uploaded_name") != up.name:
+                st.session_state["_uploaded_name"] = up.name
+                with loading("loading"):
+                    ok, msg = uploads.save_and_detect(up)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+            if not CAN_BROWSE:
+                st.caption("Or try it without any data:")
+                if st.button("Load sample experiment", key="wiz_sample"):
+                    for _k in ("video_set", "config", "metadata"):
+                        st.session_state.pop(_k, None)
+                    samples.prime_sample()
+                    go("loading")
         # Widget keys are seeded from the canonical values and mirrored back after,
         # so the selection survives when these widgets aren't rendered on later steps.
         st.session_state.setdefault("w_video", video_dir)
