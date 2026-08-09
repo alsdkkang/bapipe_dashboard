@@ -111,9 +111,11 @@ h1,h2,h3,h4{ color:var(--ink); letter-spacing:-0.02em; }
 .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
   gap:12px; margin:4px 0 18px; }
 /* File uploader: push the Upload button to the right edge of the dropzone
-   (default puts it on the left). order+margin work regardless of DOM order. */
-[data-testid="stFileUploaderDropzone"]{ display:flex; align-items:center; }
-[data-testid="stFileUploaderDropzone"] button{ order:99; margin-left:auto; }
+   (default puts it on the left). Explicit order + margin (with !important to beat
+   Streamlit's own styles) — deterministic regardless of DOM child order. */
+[data-testid="stFileUploaderDropzone"]{ display:flex !important; align-items:center !important; }
+[data-testid="stFileUploaderDropzoneInstructions"]{ order:0 !important; margin-right:auto !important; }
+[data-testid="stFileUploaderDropzone"] button{ order:1 !important; margin-left:auto !important; }
 /* Left nav (analysis phase): vertical list, accent-tinted active item. */
 .navwrap [role="radiogroup"]{ gap:2px; }
 .navwrap [role="radiogroup"] > label{ padding:8px 12px; border-radius:8px; margin:0; width:100%; }
