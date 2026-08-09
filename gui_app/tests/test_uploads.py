@@ -8,14 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import uploads  # noqa: E402
 
 
-class _Fake:
-    """Stand-in for a Streamlit UploadedFile (name + getvalue())."""
+class _Fake(io.BytesIO):
+    """Stand-in for a Streamlit UploadedFile: a seekable byte stream + name."""
     def __init__(self, name, data=b"\x00"):
+        super().__init__(data)
         self.name = name
-        self._data = data
-
-    def getvalue(self):
-        return self._data
 
 
 def test_write_folder_writes_files(tmp_path):

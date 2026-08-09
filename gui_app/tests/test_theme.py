@@ -44,7 +44,11 @@ def test_config_sets_indigo_primary():
     import tomllib
     cfg = tomllib.load(open(Path(__file__).resolve().parents[1] / ".streamlit" / "config.toml", "rb"))
     assert cfg["theme"]["primaryColor"].lower() == "#4f46e5"
-    assert "server" not in cfg  # must not manage the server on Streamlit Cloud
+    # [server] may only carry maxUploadSize — host/port/CORS break Streamlit
+    # Cloud's health check and must never be set here.
+    forbidden = {"port", "address", "enableCORS", "enableXsrfProtection", "headless",
+                 "baseUrlPath"}
+    assert not (set(cfg.get("server", {})) & forbidden)
 
 
 def test_button_and_focus_css_present():

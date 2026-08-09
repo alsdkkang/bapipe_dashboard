@@ -2,6 +2,11 @@
 # Streamlit Community Cloud manages those itself and forcing them breaks its
 # health check. Container/proxy server flags are passed by entrypoint.sh
 # (--server.port/address/enableCORS/enableXsrfProtection) for Docker deploys.
+# maxUploadSize is the one safe [server] key here — it only raises the per-file
+# upload limit (MB); it does not touch host/port/CORS.
+[server]
+maxUploadSize = 5120  # 5 GB per file
+
 [browser]
 gatherUsageStats = false
 

@@ -6,7 +6,6 @@ each wizard field gets its own uploader: pick the files for that folder — or a
 point the existing folder-based load pipeline at it. Nothing is persisted; the
 temp folder is ephemeral.
 """
-import io
 import shutil
 import tempfile
 import zipfile
@@ -41,16 +40,20 @@ def write_folder(dest, files):
     dest.mkdir(parents=True, exist_ok=True)
     n = 0
     for f in files:
-        data = f.getvalue()
+        f.seek(0)
         if f.name.lower().endswith(".zip"):
-            with zipfile.ZipFile(io.BytesIO(data)) as z:
+            # ZipFile reads the (seekable) upload directly and streams each member
+            # out to disk — no second full-size copy of the archive in memory.
+            with zipfile.ZipFile(f) as z:
                 for member in z.namelist():
                     if member.endswith("/"):
                         continue
-                    (dest / Path(member).name).write_bytes(z.read(member))
+                    with z.open(member) as src, open(dest / Path(member).name, "wb") as out:
+                        shutil.copyfileobj(src, out)
                     n += 1
         else:
-            (dest / Path(f.name).name).write_bytes(data)
+            with open(dest / Path(f.name).name, "wb") as out:
+                shutil.copyfileobj(f, out)  # chunked copy, avoids getvalue()'s full copy
             n += 1
     return n
 
