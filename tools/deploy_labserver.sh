@@ -38,6 +38,7 @@ docker run -d --name bapipe --restart unless-stopped \
   -v "$DATA_ROOT/data:/data" \
   -v "$DATA_ROOT/tmp:/tmp" \
   -e BAPIPE_ADMINS="$ADMINS" \
+  -e BAPIPE_ALLOW_SERVER_PATHS=1 \
   ${BAPIPE_ADMIN_PASSWORD:+-e BAPIPE_ADMIN_PASSWORD="$BAPIPE_ADMIN_PASSWORD"} \
   "$IMAGE"
 

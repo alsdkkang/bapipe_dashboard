@@ -8,6 +8,7 @@ Run with:
 """
 import base64
 import io
+import os
 import platform
 import subprocess
 import sys
@@ -165,6 +166,12 @@ def group_like_columns(md):
 # Native file/folder dialogs only exist on a local macOS desktop — never on the
 # hosted (Linux, headless) server, where the Browse buttons would be dead.
 CAN_BROWSE = platform.system() == "Darwin"
+
+# Self-hosted deployments where the experiment data already lives on the server
+# can opt into a "load from a folder path on this server" mode (set
+# BAPIPE_ALLOW_SERVER_PATHS=1), so users point at e.g. /data/v4 instead of
+# re-uploading multi-GB through the browser.
+SERVER_PATHS = bool(os.environ.get("BAPIPE_ALLOW_SERVER_PATHS")) and not CAN_BROWSE
 
 
 def _native_pick(mode):
@@ -808,6 +815,13 @@ def _single_field(label, dkey, wkey, types, key, help_text, is_calib=False):
             st.rerun()
 
 
+def _path_field(label, dkey, wkey, help_text):
+    """A plain path text box for self-hosted 'data already on the server' mode:
+    the user types an absolute server path, which we mirror to the canonical key."""
+    st.text_input(label, key=wkey, help=help_text)
+    st.session_state[dkey] = st.session_state[wkey]
+
+
 def render_wizard():
     step = st.session_state.setdefault("wizard_step", 0)
     # If we somehow reached a later step without a valid data selection (e.g. the
@@ -832,6 +846,17 @@ def render_wizard():
         st.session_state.setdefault("w_land", landmark_dir)
         st.session_state.setdefault("w_calib", calib_path)
         st.session_state.setdefault("w_meta", meta_path)
+
+        # Self-hosted "data already on the server" mode: let the user point at a
+        # folder path (e.g. /data/v4) instead of re-uploading multi-GB.
+        paths_mode = False
+        if SERVER_PATHS:
+            st.radio("Data source", ["Upload files", "Folder on this server"],
+                     key="w_src", horizontal=True,
+                     help="If your experiment already lives on this server, choose "
+                          "‘Folder on this server’ and type its path (e.g. /data/v4) "
+                          "— no upload needed.")
+            paths_mode = st.session_state.get("w_src") == "Folder on this server"
 
         if CAN_BROWSE:
             # Local use: type a path or use the native folder/file chooser.
@@ -866,6 +891,19 @@ def render_wizard():
             st.session_state["data_dlc_dir"] = st.session_state["w_dlc"]
             st.session_state["data_landmark_dir"] = st.session_state["w_land"]
             st.session_state["data_calib_path"] = st.session_state["w_calib"]
+        elif paths_mode:
+            # Data already on the server: type absolute folder paths (no Browse
+            # dialog server-side, no upload).
+            st.caption("Type the absolute path of each folder on the server "
+                       "(the data volume is mounted at **/data**).")
+            _path_field("Video folder", "data_video_dir", "w_video",
+                        "e.g. /data/v4/videos")
+            _path_field("DLC keypoints folder (.h5)", "data_dlc_dir", "w_dlc",
+                        "e.g. /data/v4/mouse_labels — matched to videos by filename.")
+            _path_field("Landmark folder (.h5, optional)", "data_landmark_dir", "w_land",
+                        "e.g. /data/v4/landmark_labels — leave blank to set corners later.")
+            _path_field("Camera calibration (.json) — optional", "data_calib_path",
+                        "w_calib", "e.g. /data/v4/camera_calibrations.json")
         else:
             # Hosted server: upload each piece separately (files or a .zip of that
             # folder). Everything lands in a temporary dir; nothing is stored.
@@ -916,6 +954,9 @@ def render_wizard():
             m2.button("Browse…", key="browse_meta", on_click=_pick_meta_csv,
                       use_container_width=True, help="Open a file chooser.")
             st.session_state["data_meta_path"] = st.session_state["w_meta"]
+        elif paths_mode:
+            _path_field("Metadata CSV (optional)", "data_meta_path", "w_meta",
+                        "e.g. /data/v4/metadata.csv")
         else:
             _single_field("Metadata CSV — optional", "data_meta_path", "w_meta",
                           ["csv"], "up_meta", "One row per animal with group columns "
